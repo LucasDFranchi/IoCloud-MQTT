@@ -1,0 +1,66 @@
+.container {
+    width: 375px;
+    height: 667px;
+    color: #8f43e5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: 0;
+    justify-content: center; /* Center items vertically */
+    padding-bottom: 0;
+    text-align: center; /* Center text horizontally */
+}
+
+body {
+    display: flex;
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+    /* height: 100vh; Full viewport height */
+    margin: 0; /* Remove default body margin */
+    font-family: Mulish;
+    background-color: #f0f0f0;
+}
+
+.label {
+    color: #000;
+    text-align: center;
+    font-family: Mulish;
+    font-size: 36px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: normal;
+}
+
+.input1, .ssid, .password, .connection-button {
+    width: 319px;
+    height: 63px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    font-family: Mulish;
+    font-size: 18px;
+    font-style: normal;
+    line-height: normal;
+}
+
+.label {
+    margin: 10px;
+    color: #000;
+    font-weight: 700;
+}
+
+.ssid, .password, .connection-button {
+    margin: 10px;
+    border-radius: 31.5px;
+    background: #F5F4F2;
+    color: #241C1C;
+    font-weight: 400;
+}
+
+.connection-button {
+    background: #241C1C;
+    color: #F5F4F2;
+    font-weight: 700;
+}

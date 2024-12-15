@@ -24,11 +24,11 @@ typedef struct network_status_s {
  * @brief FreeRTOS event group to signal connection events.
  *
  * This event group uses two bits:
- * - WIFI_CONNECTED_BIT: Device successfully connected to a network.
- * - WIFI_FAIL_BIT: Device failed to connect after maximum retries.
+ * - WIFI_CONNECTED_STA: Device successfully connected to a network in station mode.
+ * - WIFI_CONNECTED_AP: Device successfully connected to a network in ap mode.
  */
-#define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT BIT1
+#define WIFI_CONNECTED_STA BIT0
+#define WIFI_CONNECTED_AP BIT1
 
 /**
  * @brief Set Wi-Fi credentials for connecting to a station.
