@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Titanium</title>
+    <script src="jquery-3.3.1.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="styles.css">
+    <script async src="app.js"></script>
+</head>
+<body>
+    <div class="container" name="main">
+        
+        <!-- Label -->
+        <label class="label" for="input1">Connection</label>
+        
+        <!-- Input Fields -->
+        <input type="text" id="connected_ssid" name="connected_ssid" placeholder="SSID" class="ssid">
+        <input type="password" id="connected_pwd" name="connected_pwd" placeholder="Password"  class="password">
+        
+        <!-- Button -->
+        <button class="connection-button" type="button" id="connectionButton">Connect</button>
+        <!-- Logo -->
+        <img src=" data:image/png;base64,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">
+    </div>
+</body>
+</html>

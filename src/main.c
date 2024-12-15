@@ -1,4 +1,5 @@
 #include "network.h"
+#include "http_server.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -50,6 +51,11 @@ void app_main() {
         tskIDLE_PRIORITY,
         NULL);
 
-    vTaskDelay(pdMS_TO_TICKS(10000));
-    network_set_credentials("NETPARQUE_PAOLA\0", "NPQ196253\0");
+    xTaskCreate(
+        http_server_execute,
+        "HTTP Server Task",
+        2048 * 10,
+        NULL,
+        tskIDLE_PRIORITY,
+        NULL);
 }

@@ -67,10 +67,12 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         switch (event_id) {
             case WIFI_EVENT_AP_STACONNECTED:
                 ESP_LOGI(TAG, "WIFI_EVENT_AP_STACONNECTED");
+                xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_AP);
                 network_status.is_connect_ap = true;
                 break;
             case WIFI_EVENT_AP_STADISCONNECTED:
                 ESP_LOGI(TAG, "WIFI_EVENT_AP_STADISCONNECTED");
+                xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_AP);
                 network_status.is_connect_ap = false;
                 break;
             case WIFI_EVENT_STA_START:
@@ -78,6 +80,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 break;
             case WIFI_EVENT_STA_DISCONNECTED:
                 ESP_LOGI(TAG, "WIFI_EVENT_STA_DISCONNECTED");
+                xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_STA);
                 network_status.is_connect_sta = false;
                 break;
             case WIFI_EVENT_STA_CONNECTED:
@@ -90,7 +93,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
                 ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
 
-                xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
+                xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_STA);
                 network_status.is_connect_sta = true;
                 connection_error_counter      = 0;
                 break;
@@ -121,8 +124,16 @@ static void set_station_mode(void) {
 static esp_err_t set_access_point_mode(void) {
     esp_err_t result = ESP_OK;
 
-    strlcpy((char *)ap_config.ap.ssid, AP_SSID, sizeof(ap_config.ap.ssid));
-    strlcpy((char *)ap_config.ap.password, AP_PASSWORD, sizeof(ap_config.ap.password));
+    size_t ssid_len = snprintf((char *)ap_config.ap.ssid, sizeof(ap_config.ap.ssid), "%s", AP_SSID);
+    if (ssid_len >= sizeof(sta_config.ap.ssid)) {
+        ESP_LOGW(TAG, "SSID truncated: original length %zu", ssid_len);
+        result = ESP_FAIL;
+    }
+    size_t password_len = snprintf((char *)ap_config.ap.password, sizeof(ap_config.ap.password), "%s", AP_PASSWORD);
+    if (password_len >= sizeof(sta_config.sta.password)) {
+        ESP_LOGW(TAG, "Password truncated: original length %zu", password_len);
+        result = ESP_FAIL;
+    }
 
     ap_config.ap.ssid_len        = sizeof(AP_SSID);
     ap_config.ap.channel         = AP_CHANNEL;
