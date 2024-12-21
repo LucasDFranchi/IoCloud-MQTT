@@ -114,9 +114,6 @@ static esp_err_t post_uri_wifi_credentials(httpd_req_t* req) {
     char ssid[32]     = {0};
     char password[64] = {0};
 
-    // HTTPServerProcess* http_server_manager =
-    //     reinterpret_cast<HTTPServerProcess*>(req->user_ctx);
-
     uint8_t ssid_len = httpd_req_get_hdr_value_len(req, "my-connected-ssid") + 1;
     uint8_t pwd_len  = httpd_req_get_hdr_value_len(req, "my-connected-pwd") + 1;
 
@@ -267,9 +264,12 @@ static esp_err_t http_server_initialize(void) {
 }
 
 /**
- * @brief Main execution loop for HTTPServerProcess.
+ * @brief Main execution function for the HTTP server.
  *
- * This function runs an infinite loop with a delay of 1000 milliseconds.
+ * This function initializes and starts the HTTP server, enabling the ESP32 to
+ * handle incoming web requests. It processes requests in a FreeRTOS task.
+ *
+ * @param[in] pvParameters Pointer to task parameters (TaskHandle_t).
  */
 void http_server_execute(void* pvParameters) {
     if (http_server_initialize() != ESP_OK) {
