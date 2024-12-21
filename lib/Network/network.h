@@ -2,10 +2,7 @@
 #define NETWORK_H
 
 #include <stdbool.h>
-
 #include "esp_err.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 
 /**
  * @file network.h
