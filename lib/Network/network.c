@@ -16,18 +16,20 @@
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
 
-static const char *TAG                    = "Network";          ///< Tag for logging.
-static const char AP_SSID[]               = "Titanium\0";       ///< Access Point SSID.
-static const char AP_PASSWORD[]           = "root1234\0";       ///< Access Point password.
-static const uint8_t AP_CHANNEL           = 1;                  ///< Access Point channel (1-14 depending on region).
-static const uint8_t AP_VISIBILITY        = 0;                  ///< Access Point visibility (0: hidden, 1: visible).
-static const uint8_t AP_MAX_CONNECTIONS   = 1;                  ///< Maximum number of connections to the Access Point.
-static const uint8_t AP_BEACON_INTERVAL   = 100;                ///< Beacon interval in milliseconds.
-static const char *AP_IP                  = "192.168.0.1";      ///< Access Point IP address.
-static const char *AP_GW                  = "192.168.0.1";      ///< Access Point gateway address.
-static const char *AP_NETMASK             = "255.255.255.0";    ///< Access Point netmask.
-static const wifi_bandwidth_t AP_BW       = WIFI_BW_HT20;       ///< Access Point bandwidth configuration.
-static const wifi_ps_type_t AP_POWER_SAVE = WIFI_PS_MIN_MODEM;  ///< Access Point power save mode.
+static const char *TAG                      = "Network";          ///< Tag for logging.
+static const char AP_SSID[]                 = "Titanium\0";       ///< Access Point SSID.
+static const char AP_PASSWORD[]             = "root1234\0";       ///< Access Point password.
+static const uint8_t AP_CHANNEL             = 1;                  ///< Access Point channel (1-14 depending on region).
+static const uint8_t AP_VISIBILITY          = 0;                  ///< Access Point visibility (0: hidden, 1: visible).
+static const uint8_t AP_MAX_CONNECTIONS     = 1;                  ///< Maximum number of connections to the Access Point.
+static const uint8_t AP_BEACON_INTERVAL     = 100;                ///< Beacon interval in milliseconds.
+static const char *AP_IP                    = "192.168.0.1";      ///< Access Point IP address.
+static const char *AP_GW                    = "192.168.0.1";      ///< Access Point gateway address.
+static const char *AP_NETMASK               = "255.255.255.0";    ///< Access Point netmask.
+static const wifi_bandwidth_t AP_BW         = WIFI_BW_HT20;       ///< Access Point bandwidth configuration.
+static const wifi_ps_type_t AP_POWER_SAVE   = WIFI_PS_MIN_MODEM;  ///< Access Point power save mode.
+static const uint8_t MAX_RECONNECT_ATTEMPTS = 3;                  ///< Maximum number of reconnection attempts
+static const uint16_t RECONNECTION_DELAY_MS = 5000;               ///< Delay between reconnection attempts, in milliseconds
 
 static network_status_st network_status = {
     .is_connect_ap  = false,  ///< Initial state: not connected to the Access Point.
@@ -35,7 +37,8 @@ static network_status_st network_status = {
 };
 
 // Global variables for connection handling
-static uint8_t connection_error_counter = 0;      ///< Counter for tracking connection errors.
+static uint8_t connection_retry_counter = 0;      ///< Counter for tracking connection retries.
+static uint8_t is_retry_limit_exceeded  = 0;      ///< Flag to indicate that the limit was exceeded.
 static bool is_credential_set           = false;  ///< Flag to indicate if credentials are set.
 static esp_netif_t *esp_netif_sta       = {0};    ///< Pointer to the Station network interface.
 static esp_netif_t *esp_netif_ap        = {0};    ///< Pointer to the Access Point network interface.
@@ -95,7 +98,6 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
 
                 xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_STA);
                 network_status.is_connect_sta = true;
-                connection_error_counter      = 0;
                 break;
         }
     }
@@ -240,7 +242,9 @@ esp_err_t network_set_credentials(const char *ssid, const char *password) {
     }
 
     if (result == ESP_OK) {
-        is_credential_set = true;
+        is_credential_set        = true;
+        is_retry_limit_exceeded  = false;
+        connection_retry_counter = 0;
         set_station_mode();
     }
 
@@ -262,9 +266,40 @@ void network_execute(void *pvParameters) {
     }
 
     while (1) {
-        if (is_credential_set && !network_status.is_connect_sta) {
-            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
-        }
+        do {
+            if (network_status.is_connect_sta) {
+                // Network Already Connect
+                connection_retry_counter = 0;
+                break;
+            }
+            if (is_retry_limit_exceeded) {
+                // The retry limit was exceeded
+                break;
+            }
+            if (!is_credential_set) {
+                // No credential was passed trough the webserver
+                break;
+            }
+
+            if (connection_retry_counter < MAX_RECONNECT_ATTEMPTS) {
+                ESP_LOGI(TAG, "Reconnecting to the STA (Attempt %d of %d)...",
+                         connection_retry_counter + 1,
+                         MAX_RECONNECT_ATTEMPTS);
+
+                esp_err_t err = ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
+                if (err == ESP_OK) {
+                    ESP_LOGI(TAG, "Connection attempt initiated.");
+                    connection_retry_counter++;
+                } else {
+                    ESP_LOGE(TAG, "Reconnect attempt failed: %s", esp_err_to_name(err));
+                }
+
+                vTaskDelay(pdMS_TO_TICKS(RECONNECTION_DELAY_MS));
+            } else {
+                ESP_LOGE(TAG, "Max reconnect attempts reached. Stopping further attempts.");
+                is_retry_limit_exceeded = true;
+            }
+        } while (0);
 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
