@@ -6,7 +6,27 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 
+/**
+ * @brief External handle for the sensor data queue.
+ *
+ * This queue is used to store and retrieve temperature and humidity data
+ * captured from the sensors. It acts as a communication mechanism between
+ * tasks producing sensor data and tasks consuming it for processing or
+ * transmission.
+ */
 extern QueueHandle_t sensor_data_queue;
+
+/**
+ * @brief Data structure to hold temperature and humidity information.
+ *
+ * This structure is designed to encapsulate environmental data read from a
+ * temperature and humidity sensor. It contains fields for temperature and
+ * relative humidity values.
+ */
+typedef struct temperature_data_t {
+    float temperature; ///< Temperature reading from the sensor in degrees Celsius.
+    float humidity;    ///< Humidity reading from the sensor in percentage (%).
+} temperature_data_st;
 
 /**
  * @file temperature_monitor.h

@@ -14,8 +14,9 @@
  * and log the results.
  */
 
-static aht10_data_st aht10_data = {0};                    ///< Structure to hold the temperature and humidity data.
-static const char* TAG          = "Temperature Monitor";  ///< Tag used for logging.
+static aht10_data_st aht10_data             = {0};                    ///< Structure to hold the temperature and humidity data.
+static temperature_data_st temperature_data = {0};                    ///< Structure to hold the temperature and humidity data for external use.
+static const char* TAG                      = "Temperature Monitor";  ///< Tag used for logging.
 
 QueueHandle_t sensor_data_queue = NULL;
 
@@ -29,7 +30,7 @@ QueueHandle_t sensor_data_queue = NULL;
  * @return ESP_OK on successful initialization, ESP_FAIL on failure.
  */
 static esp_err_t temperature_sensor_initialize(void) {
-    sensor_data_queue = xQueueCreate(100, sizeof(aht10_data_st));
+    sensor_data_queue = xQueueCreate(100, sizeof(temperature_data_st));
     return aht10_init();
 }
 
@@ -51,12 +52,10 @@ void temperature_monitor_execute(void* pvParameters) {
     while (1) {
         aht10_get_temperature_humidity(&aht10_data);
 
-        float humidity    = ((float)aht10_data.raw_humidity / 1048576.0) * 100.0;
-        float temperature = ((float)aht10_data.raw_temperature / 1048576.0) * 200.0 - 50.0;
+        temperature_data.humidity    = ((float)aht10_data.raw_humidity / 1048576.0) * 100.0;
+        temperature_data.temperature = ((float)aht10_data.raw_temperature / 1048576.0) * 200.0 - 50.0;
 
-        ESP_LOGI(TAG, "Temperature: %.2f°C, Humidity: %.2f%%", temperature, humidity);
-
-        if (xQueueSend(sensor_data_queue, &aht10_data, pdMS_TO_TICKS(100)) != pdPASS) {
+        if (xQueueSend(sensor_data_queue, &temperature_data, pdMS_TO_TICKS(100)) != pdPASS) {
             ESP_LOGW(TAG, "Failed to send data to queue");
         }
 
