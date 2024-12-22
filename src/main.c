@@ -1,5 +1,6 @@
 #include "network.h"
 #include "http_server.h"
+#include "temperature_monitor.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -54,6 +55,14 @@ void app_main() {
     xTaskCreate(
         http_server_execute,
         "HTTP Server Task",
+        2048 * 10,
+        NULL,
+        tskIDLE_PRIORITY,
+        NULL);
+
+    xTaskCreate(
+        temperature_monitor_execute,
+        "Temperature Monitoring Task",
         2048 * 10,
         NULL,
         tskIDLE_PRIORITY,
