@@ -1,5 +1,6 @@
 #include "network.h"
 #include "http_server.h"
+#include "mqtt_client_task.h"
 #include "temperature_monitor.h"
 
 #include "freertos/FreeRTOS.h"
@@ -66,5 +67,13 @@ void app_main() {
         2048 * 10,
         NULL,
         tskIDLE_PRIORITY,
-        NULL);
+        NULL);       
+
+    xTaskCreate(
+        mqtt_client_execute,
+        "MQTT Task",
+        2048 * 10,
+        NULL,
+        tskIDLE_PRIORITY,
+        NULL);       
 }
