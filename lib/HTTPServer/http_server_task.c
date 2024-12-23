@@ -1,5 +1,6 @@
 #include "esp_log.h"
 
+#include "events_definition.h"
 #include "http_server_task.h"
 #include "network_task.h"
 
@@ -8,14 +9,16 @@ static httpd_config_t config      = HTTPD_DEFAULT_CONFIG();
 static httpd_handle_t http_server = NULL;
 static bool is_server_connected   = false;
 
-/*
- * @brief Event Group to signal the status of the Wi-Fi connection.
+/**
+ * @brief Event group for signaling system status and events.
  *
- * This event group is used to communicate the connection status of the ESP32's Wi-Fi interface
- * to other tasks in the system. Various bits in the event group will be set or cleared based on
- * Wi-Fi events (e.g., connected, disconnected, IP acquired) to allow tasks to react accordingly.
+ * This event group is used to communicate various system events and states between
+ * different tasks. It provides flags that other tasks can check to determine the
+ * status of Ethernet connection, IP acquisition, and other critical system states.
+ * The event group helps in synchronizing events across tasks, enabling efficient
+ * coordination of system activities.
  */
-extern EventGroupHandle_t wifi_event_group;
+static EventGroupHandle_t* firmware_event_group = NULL;
 
 extern const uint8_t bin_data_index_html_start[] asm("_binary_index_html_start");          /**< Start of index.html binary data. */
 extern const uint8_t bin_data_index_html_end[] asm("_binary_index_html_end");              /**< End of index.html binary data. */
@@ -143,9 +146,9 @@ static esp_err_t post_uri_wifi_credentials(httpd_req_t* req) {
                                 "Error reading Password!");
             return ESP_FAIL;
         }
-        ssid[ssid_len] = '\0';
+        ssid[ssid_len]    = '\0';
         password[pwd_len] = '\0';
-        
+
         result = network_set_credentials(ssid, password);
 
     } while (0);
@@ -272,23 +275,24 @@ static esp_err_t http_server_task_initialize(void) {
  * @param[in] pvParameters Pointer to task parameters (TaskHandle_t).
  */
 void http_server_task_execute(void* pvParameters) {
-    if (http_server_task_initialize() != ESP_OK) {
+    firmware_event_group = (EventGroupHandle_t*)pvParameters;
+    if ((http_server_task_initialize() != ESP_OK) || (firmware_event_group == NULL)) {
         vTaskDelete(NULL);
     }
 
     while (1) {
-        EventBits_t wifi_bits = xEventGroupWaitBits(wifi_event_group,
-                                                    WIFI_CONNECTED_AP,
-                                                    pdFALSE,
-                                                    pdFALSE,
-                                                    pdMS_TO_TICKS(100));
+        EventBits_t firmware_event_bits = xEventGroupWaitBits(*firmware_event_group,
+                                                              WIFI_CONNECTED_AP,
+                                                              pdFALSE,
+                                                              pdFALSE,
+                                                              pdMS_TO_TICKS(100));
 
         if (is_server_connected) {
-            if ((wifi_bits & WIFI_CONNECTED_AP) == 0) {
+            if ((firmware_event_bits & WIFI_CONNECTED_AP) == 0) {
                 stop_http_server();
             }
         } else {
-            if (wifi_bits & WIFI_CONNECTED_AP) {
+            if (firmware_event_bits & WIFI_CONNECTED_AP) {
                 start_http_server();
             }
         }
