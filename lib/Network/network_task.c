@@ -6,7 +6,7 @@
  * Access Point (AP) and Station (STA) modes. It supports setting up an AP,
  * connecting to an external network as a STA, and handling network events.
  */
-#include "network.h"
+#include "network_task.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -174,7 +174,7 @@ static esp_err_t set_access_point_mode(void) {
  *
  * @return ESP_OK on success, or an error code on failure.
  */
-static esp_err_t network_initialize(void) {
+static esp_err_t network_task_initialize(void) {
     esp_err_t result = ESP_OK;
 
     result += esp_netif_init();
@@ -263,8 +263,8 @@ esp_err_t network_set_credentials(const char *ssid, const char *password) {
  *
  * @param[in] pvParameters Pointer to task parameters (TaskHandle_t).
  */
-void network_execute(void *pvParameters) {
-    if (network_initialize() != ESP_OK) {
+void network_task_execute(void *pvParameters) {
+    if (network_task_initialize() != ESP_OK) {
         vTaskDelete(NULL);
     }
 

@@ -1,7 +1,7 @@
 #include "esp_log.h"
 
-#include "http_server.h"
-#include "network.h"
+#include "http_server_task.h"
+#include "network_task.h"
 
 static const char* TAG            = "HTTPServerProcess"; /**< Logging tag for HTTPServerProcess class. */
 static httpd_config_t config      = HTTPD_DEFAULT_CONFIG();
@@ -253,7 +253,7 @@ void stop_http_server(void) {
  *
  * @return ESP_OK on success, or an error code on failure.
  */
-static esp_err_t http_server_initialize(void) {
+static esp_err_t http_server_task_initialize(void) {
     esp_err_t result = ESP_OK;
 
     config.send_wait_timeout = 10;
@@ -271,8 +271,8 @@ static esp_err_t http_server_initialize(void) {
  *
  * @param[in] pvParameters Pointer to task parameters (TaskHandle_t).
  */
-void http_server_execute(void* pvParameters) {
-    if (http_server_initialize() != ESP_OK) {
+void http_server_task_execute(void* pvParameters) {
+    if (http_server_task_initialize() != ESP_OK) {
         vTaskDelete(NULL);
     }
 

@@ -1,11 +1,11 @@
-#ifndef NETWORK_H
-#define NETWORK_H
+#ifndef NETWORK_TASK_H
+#define NETWORK_TASK_H
 
 #include <stdbool.h>
 #include "esp_err.h"
 
 /**
- * @file network.h
+ * @file network_task.h
  * @brief Network management interface for ESP32, supporting AP and STA modes.
  */
 
@@ -49,6 +49,6 @@ esp_err_t network_set_credentials(const char *ssid, const char *password);
  *
  * @param[in] pvParameters Pointer to task parameters (TaskHandle_t).
  */
-void network_execute(void *pvParameters);
+void network_task_execute(void *pvParameters);
 
-#endif  // NETWORK_H
+#endif  // NETWORK_TASK_H

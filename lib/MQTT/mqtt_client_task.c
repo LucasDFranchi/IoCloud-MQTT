@@ -3,8 +3,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "mqtt_client.h"
-#include "network.h"
-#include "temperature_monitor.h"
+#include "network_task.h"
+#include "temperature_monitor_task.h"
 
 /**
  * @file
@@ -70,7 +70,7 @@ static void mqtt_event_handler(void* arg, esp_event_base_t base, int32_t event_i
  * This function sets up the MQTT client, configures its parameters, and
  * registers the event handler callback.
  */
-static void mqtt_client_initialize(void) {
+static esp_err_t mqtt_client_task_initialize(void) {
     esp_mqtt_client_config_t mqtt_cfg = {0};
     esp_err_t result                  = ESP_OK;
 
@@ -79,6 +79,8 @@ static void mqtt_client_initialize(void) {
     result += esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, NULL);
     result += esp_mqtt_client_set_uri(mqtt_client, "mqtt://mqtt.eclipseprojects.io");
     result += esp_mqtt_set_config(mqtt_client, &mqtt_cfg);
+
+    return result;
 }
 
 /**
@@ -152,8 +154,10 @@ void mqtt_publish_data(void) {
  *
  * @param[in] pvParameters User-defined parameters (not used).
  */
-void mqtt_client_execute(void* pvParameters) {
-    mqtt_client_initialize();
+void mqtt_client_task_execute(void* pvParameters) {
+    if (mqtt_client_task_initialize() != ESP_OK) {
+        vTaskDelete(NULL);
+    }
 
     while (1) {
         EventBits_t wifi_bits = xEventGroupWaitBits(wifi_event_group,

@@ -1,7 +1,7 @@
-#include "network.h"
-#include "http_server.h"
+#include "network_task.h"
+#include "http_server_task.h"
 #include "mqtt_client_task.h"
-#include "temperature_monitor.h"
+#include "temperature_monitor_task.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -46,7 +46,7 @@ void app_main() {
     ESP_ERROR_CHECK(initialize_nvs());
     wifi_event_group = xEventGroupCreate();
     xTaskCreate(
-        network_execute,
+        network_task_execute,
         "Network Task",
         2048 * 10,
         NULL,
@@ -54,7 +54,7 @@ void app_main() {
         NULL);
 
     xTaskCreate(
-        http_server_execute,
+        http_server_task_execute,
         "HTTP Server Task",
         2048 * 10,
         NULL,
@@ -62,7 +62,7 @@ void app_main() {
         NULL);
 
     xTaskCreate(
-        temperature_monitor_execute,
+        temperature_monitor_task_execute,
         "Temperature Monitoring Task",
         2048 * 10,
         NULL,
@@ -70,7 +70,7 @@ void app_main() {
         NULL);       
 
     xTaskCreate(
-        mqtt_client_execute,
+        mqtt_client_task_execute,
         "MQTT Task",
         2048 * 10,
         NULL,

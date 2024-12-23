@@ -1,4 +1,4 @@
-#include "temperature_monitor.h"
+#include "temperature_monitor_task.h"
 #include "Driver/aht10.h"
 #include "esp_log.h"
 
@@ -21,7 +21,7 @@ static const char* TAG                      = "Temperature Monitor";  ///< Tag u
 QueueHandle_t sensor_data_queue = NULL;
 
 /**
- * @brief Initializes the temperature sensor.
+ * @brief Initializes the temperature monitor.
  *
  * This function calls the `aht10_init` function to initialize the AHT10
  * temperature and humidity sensor. If initialization fails, the task
@@ -29,7 +29,7 @@ QueueHandle_t sensor_data_queue = NULL;
  *
  * @return ESP_OK on successful initialization, ESP_FAIL on failure.
  */
-static esp_err_t temperature_sensor_initialize(void) {
+static esp_err_t temperature_monitor_task_initialize(void) {
     sensor_data_queue = xQueueCreate(100, sizeof(temperature_data_st));
     return aht10_init();
 }
@@ -44,8 +44,8 @@ static esp_err_t temperature_sensor_initialize(void) {
  *
  * @param[in] pvParameters Pointer to task parameters (TaskHandle_t).
  */
-void temperature_monitor_execute(void* pvParameters) {
-    if (temperature_sensor_initialize() != ESP_OK) {
+void temperature_monitor_task_execute(void* pvParameters) {
+    if (temperature_monitor_task_initialize() != ESP_OK) {
         vTaskDelete(NULL);
     }
 
