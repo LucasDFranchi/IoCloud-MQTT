@@ -1,5 +1,5 @@
-#ifndef HTTP_SERVER_H
-#define HTTP_SERVER_H
+#ifndef HTTP_SERVER_TASK_H
+#define HTTP_SERVER_TASK_H
 
 #include "esp_err.h"
 #include "esp_http_server.h"
@@ -17,6 +17,6 @@
  *
  * @param[in] pvParameters Pointer to task parameters (TaskHandle_t).
  */
-void http_server_execute(void *pvParameters);
+void http_server_task_execute(void *pvParameters);
 
-#endif /* HTTP_SERVER_H */
+#endif /* HTTP_SERVER_TASK_H */

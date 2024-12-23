@@ -1,8 +1,8 @@
-#ifndef MQTT_CLIENT_H
-#define MQTT_CLIENT_H
+#ifndef MQTT_CLIENT_TASK_H
+#define MQTT_CLIENT_TASK_H
 
 /**
- * @file mqtt_client.h
+ * @file mqtt_client_task.h
  * @brief MQTT Client interface for handling web requests on the ESP32.
  */
 
@@ -14,6 +14,6 @@
  *
  * @param[in] pvParameters Pointer to task parameters (TaskHandle_t).
  */
-void mqtt_client_execute(void* pvParameters);
+void mqtt_client_task_execute(void* pvParameters);
 
-#endif /* MQTT_CLIENT_H */
+#endif /* MQTT_CLIENT_TASK_H */
