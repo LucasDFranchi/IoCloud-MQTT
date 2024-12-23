@@ -1,5 +1,5 @@
-#ifndef TEMPERATURE_MONITOR_H
-#define TEMPERATURE_MONITOR_H
+#ifndef TEMPERATURE_MONITOR_TASK_H
+#define TEMPERATURE_MONITOR_TASK_H
 
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
@@ -47,6 +47,6 @@ typedef struct temperature_data_t {
  *
  * @param[in] pvParameters Pointer to task parameters (TaskHandle_t).
  */
-void temperature_monitor_execute(void *pvParameters);
+void temperature_monitor_task_execute(void *pvParameters);
 
-#endif /* TEMPERATURE_MONITOR_H */
+#endif /* TEMPERATURE_MONITOR_TASK_H */
