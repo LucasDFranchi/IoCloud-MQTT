@@ -7,6 +7,7 @@
  * connecting to an external network as a STA, and handling network events.
  */
 #include "network_task.h"
+#include "events_definition.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -48,14 +49,16 @@ static esp_netif_t *esp_netif_ap        = {0};    ///< Pointer to the Access Poi
 static wifi_config_t ap_config          = {0};    ///< Configuration structure for the Access Point.
 static wifi_config_t sta_config         = {0};    ///< Configuration structure for the Station.
 
-/*
- * @brief Event Group to signal the status of the Wi-Fi connection.
+/**
+ * @brief Event group for signaling system status and events.
  *
- * This event group is used to communicate the connection status of the ESP32's Wi-Fi interface
- * to other tasks in the system. Various bits in the event group will be set or cleared based on
- * Wi-Fi events (e.g., connected, disconnected, IP acquired) to allow tasks to react accordingly.
+ * This event group is used to communicate various system events and states between
+ * different tasks. It provides flags that other tasks can check to determine the
+ * status of Ethernet connection, IP acquisition, and other critical system states.
+ * The event group helps in synchronizing events across tasks, enabling efficient
+ * coordination of system activities.
  */
-extern EventGroupHandle_t wifi_event_group;
+static EventGroupHandle_t* firmware_event_group = NULL;
 
 /**
  * @brief Event handler for Wi-Fi-related events.
@@ -73,12 +76,12 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         switch (event_id) {
             case WIFI_EVENT_AP_STACONNECTED:
                 ESP_LOGI(TAG, "WIFI_EVENT_AP_STACONNECTED");
-                xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_AP);
+                xEventGroupSetBits(*firmware_event_group, WIFI_CONNECTED_AP);
                 network_status.is_connect_ap = true;
                 break;
             case WIFI_EVENT_AP_STADISCONNECTED:
                 ESP_LOGI(TAG, "WIFI_EVENT_AP_STADISCONNECTED");
-                xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_AP);
+                xEventGroupClearBits(*firmware_event_group, WIFI_CONNECTED_AP);
                 network_status.is_connect_ap = false;
                 break;
             case WIFI_EVENT_STA_START:
@@ -86,7 +89,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 break;
             case WIFI_EVENT_STA_DISCONNECTED:
                 ESP_LOGI(TAG, "WIFI_EVENT_STA_DISCONNECTED");
-                xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_STA);
+                xEventGroupClearBits(*firmware_event_group, WIFI_CONNECTED_STA);
                 network_status.is_connect_sta = false;
                 break;
             case WIFI_EVENT_STA_CONNECTED:
@@ -99,7 +102,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
                 ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
 
-                xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_STA);
+                xEventGroupSetBits(*firmware_event_group, WIFI_CONNECTED_STA);
                 network_status.is_connect_sta = true;
                 break;
         }
@@ -264,7 +267,8 @@ esp_err_t network_set_credentials(const char *ssid, const char *password) {
  * @param[in] pvParameters Pointer to task parameters (TaskHandle_t).
  */
 void network_task_execute(void *pvParameters) {
-    if (network_task_initialize() != ESP_OK) {
+    firmware_event_group = (EventGroupHandle_t*)pvParameters;
+    if ((network_task_initialize() != ESP_OK) || (firmware_event_group == NULL)) {
         vTaskDelete(NULL);
     }
 
