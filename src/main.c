@@ -2,6 +2,7 @@
 #include "http_server_task.h"
 #include "mqtt_client_task.h"
 #include "temperature_monitor_task.h"
+#include "sntp_task.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -9,16 +10,16 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 
-/*
- * @brief Event group to signal the status of the Ethernet connection.
+/**
+ * @brief Event group for signaling system status and events.
  *
- * This event group is used to communicate the current status of the Ethernet connection
- * between different tasks. It provides flags that other tasks can check to determine
- * whether the device is connected to the network, has received an IP address, or is
- * facing disconnection issues. The event group helps in synchronizing Wi-Fi related
- * events across tasks in the system.
+ * This event group is used to communicate various system events and states between 
+ * different tasks. It provides flags that other tasks can check to determine the 
+ * status of Ethernet connection, IP acquisition, and other critical system states.
+ * The event group helps in synchronizing events across tasks, enabling efficient 
+ * coordination of system activities.
  */
-EventGroupHandle_t wifi_event_group = {0};
+EventGroupHandle_t firmware_event_group = {0};
 
 /*
  * @brief Initialize the Non-Volatile Storage (NVS) for the device.
@@ -44,12 +45,14 @@ esp_err_t initialize_nvs(void) {
 void app_main() {
 
     ESP_ERROR_CHECK(initialize_nvs());
-    wifi_event_group = xEventGroupCreate();
+
+    firmware_event_group = xEventGroupCreate();
+    
     xTaskCreate(
         network_task_execute,
         "Network Task",
         2048 * 10,
-        NULL,
+        (void *)&firmware_event_group,
         tskIDLE_PRIORITY,
         NULL);
 
@@ -57,7 +60,7 @@ void app_main() {
         http_server_task_execute,
         "HTTP Server Task",
         2048 * 10,
-        NULL,
+        (void *)&firmware_event_group,
         tskIDLE_PRIORITY,
         NULL);
 
@@ -73,7 +76,15 @@ void app_main() {
         mqtt_client_task_execute,
         "MQTT Task",
         2048 * 10,
-        NULL,
+        (void *)&firmware_event_group,
+        tskIDLE_PRIORITY,
+        NULL);       
+
+    xTaskCreate(
+        sntp_task_execute,
+        "SNTP Task",
+        2048 * 10,
+        (void *)&firmware_event_group,
         tskIDLE_PRIORITY,
         NULL);       
 }
