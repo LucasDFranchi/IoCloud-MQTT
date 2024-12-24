@@ -132,7 +132,7 @@ static void mqtt_publish_temperature(float temperature) {
 
     get_timestamp_in_iso_format(time_buffer, sizeof(time_buffer));
     snprintf(message_buffer, sizeof(message_buffer),
-             "{\"timestamp\": %s, \"value\": \"%.2f°C\"}",
+             "{\"timestamp\": \"%s\", \"value\": %.2f}",
              time_buffer, temperature);
 
     if (sniprintf(channel, sizeof(channel), "/titanium/%s/temperature", unique_id) < sizeof(channel)) {
@@ -163,7 +163,7 @@ static void mqtt_publish_humidity(float humidity) {
 
     get_timestamp_in_iso_format(time_buffer, sizeof(time_buffer));
     snprintf(message_buffer, sizeof(message_buffer),
-             "{\"timestamp\": %s, \"value\": \"%.2f%%\"}",
+             "{\"timestamp\": \"%s\", \"value\": %.2f}",
              time_buffer, humidity);
     if (sniprintf(channel, sizeof(channel), "/titanium/%s/humidity", unique_id) < sizeof(channel)) {
         int msg_id = esp_mqtt_client_publish(mqtt_client, channel, message_buffer, 0, 1, 0);
