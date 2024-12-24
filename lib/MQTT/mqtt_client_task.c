@@ -1,14 +1,11 @@
 #include "mqtt_client_task.h"
+#include "esp_log.h"
 #include "events_definition.h"
+#include "freertos/FreeRTOS.h"
+#include "mqtt_client.h"
 #include "network_task.h"
 #include "temperature_monitor_task.h"
-
-#include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-
-#include "mqtt_client.h"
-
-#include "time.h"
+#include "utils.h"
 
 /**
  * @file
@@ -17,6 +14,7 @@
 static const char* TAG                      = "MQTT Task";
 static esp_mqtt_client_handle_t mqtt_client = {0};
 static bool is_mqtt_connected               = false;
+char unique_id[13]                          = {0};
 
 /**
  * @brief Event group for signaling system status and events.
@@ -56,7 +54,7 @@ static void mqtt_event_handler(void* arg, esp_event_base_t base, int32_t event_i
             break;
 
         case MQTT_EVENT_DATA:
-            ESP_LOGI(TAG, "MQTT_EVENT_DATA: Topic=%.*s, Data=%.*s",
+            ESP_LOGD(TAG, "MQTT_EVENT_DATA: Topic=%.*s, Data=%.*s",
                      event->topic_len, event->topic,
                      event->data_len, event->data);
             break;
@@ -66,7 +64,7 @@ static void mqtt_event_handler(void* arg, esp_event_base_t base, int32_t event_i
             break;
 
         default:
-            ESP_LOGI(TAG, "Other MQTT event: %d", event->event_id);
+            ESP_LOGD(TAG, "MQTT event: %d", event->event_id);
             break;
     }
 }
@@ -86,6 +84,8 @@ static esp_err_t mqtt_client_task_initialize(void) {
     result += esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, NULL);
     result += esp_mqtt_client_set_uri(mqtt_client, "mqtt://mqtt.eclipseprojects.io");
     result += esp_mqtt_set_config(mqtt_client, &mqtt_cfg);
+
+    get_unique_id(unique_id, sizeof(unique_id));
 
     return result;
 }
@@ -117,48 +117,78 @@ static void stop_mqtt_client(void) {
 }
 
 /**
+ * @brief Publish the temperature data to the MQTT broker.
+ *
+ * This function formats the temperature value as a JSON string with a timestamp
+ * and publishes it to the MQTT topic "/titanium/1/temperature". It logs the result
+ * of the publish operation.
+ *
+ * @param[in] temperature The temperature value to be published (in °C).
+ */
+static void mqtt_publish_temperature(float temperature) {
+    char message_buffer[256] = {0};
+    char time_buffer[64]     = {0};
+    char channel[64]         = {0};
+
+    get_timestamp_in_iso_format(time_buffer, sizeof(time_buffer));
+    snprintf(message_buffer, sizeof(message_buffer),
+             "{\"timestamp\": %s, \"value\": \"%.2f°C\"}",
+             time_buffer, temperature);
+
+    if (sniprintf(channel, sizeof(channel), "/titanium/%s/temperature", unique_id) < sizeof(channel)) {
+        int msg_id = esp_mqtt_client_publish(mqtt_client, channel, message_buffer, 0, 1, 0);
+        if (msg_id >= 0) {
+            ESP_LOGD(TAG, "Message published successfully, msg_id=%d", msg_id);
+        } else {
+            ESP_LOGE(TAG, "Failed to publish message");
+        }
+    } else {
+        ESP_LOGE(TAG, "Channel buffer too small");
+    }
+}
+
+/**
+ * @brief Publish the humidity data to the MQTT broker.
+ *
+ * This function formats the humidity value as a JSON string with a timestamp
+ * and publishes it to the MQTT topic "/titanium/1/humidity". It logs the result
+ * of the publish operation.
+ *
+ * @param[in] humidity The humidity value to be published (in percentage).
+ */
+static void mqtt_publish_humidity(float humidity) {
+    char message_buffer[256] = {0};
+    char time_buffer[64]     = {0};
+    char channel[64]         = {0};
+
+    get_timestamp_in_iso_format(time_buffer, sizeof(time_buffer));
+    snprintf(message_buffer, sizeof(message_buffer),
+             "{\"timestamp\": %s, \"value\": \"%.2f%%\"}",
+             time_buffer, humidity);
+    if (sniprintf(channel, sizeof(channel), "/titanium/%s/humidity", unique_id) < sizeof(channel)) {
+        int msg_id = esp_mqtt_client_publish(mqtt_client, channel, message_buffer, 0, 1, 0);
+        if (msg_id >= 0) {
+            ESP_LOGD(TAG, "Message published successfully, msg_id=%d", msg_id);
+        } else {
+            ESP_LOGE(TAG, "Failed to publish message");
+        }
+    } else {
+        ESP_LOGE(TAG, "Channel buffer too small");
+    }
+}
+
+/**
  * @brief Publishes sensor data to the MQTT topic.
  *
  * Retrieves sensor data from the queue, formats it into a JSON string,
  * and publishes it to the configured MQTT topic.
  */
-void mqtt_publish_data(void) {
+static void mqtt_publish_data(void) {
     if (mqtt_client) {
         temperature_data_st temperature_data = {0};
         if (xQueueReceive(sensor_data_queue, &temperature_data, pdMS_TO_TICKS(100))) {
-            struct tm time_info = {0};
-            time_t now          = 0;
-
-            // Get current time
-            time(&now);
-            localtime_r(&now, &time_info);
-
-            char time_buffer[64];
-            strftime(time_buffer, sizeof(time_buffer), "%d.%m.%Y %H:%M:%S", &time_info);
-
-
-            char message_buffer[256] = {0};
-            snprintf(message_buffer, sizeof(message_buffer),
-                     "{\"timestamp\": %s, \"value\": \"%.2f°C\"}",
-                     time_buffer, temperature_data.temperature);
-
-            int msg_id = esp_mqtt_client_publish(mqtt_client, "/titanium/1/temperature", message_buffer, 0, 1, 0);
-            if (msg_id >= 0) {
-                ESP_LOGI(TAG, "Message published successfully, msg_id=%d", msg_id);
-            } else {
-                ESP_LOGE(TAG, "Failed to publish message");
-            }
-            memset(message_buffer, 0, sizeof(message_buffer));
-            snprintf(message_buffer, sizeof(message_buffer),
-                     "{\"timestamp\": %s, \"value\": \"%.2f%%\"}",
-                     time_buffer, temperature_data.humidity);
-
-            msg_id = esp_mqtt_client_publish(mqtt_client, "/titanium/1/humidity", message_buffer, 0, 1, 0);
-            if (msg_id >= 0) {
-                ESP_LOGI(TAG, "Message published successfully, msg_id=%d", msg_id);
-            } else {
-                ESP_LOGE(TAG, "Failed to publish message");
-            }
+            mqtt_publish_temperature(temperature_data.temperature);
+            mqtt_publish_humidity(temperature_data.humidity);
         }
     }
 }
@@ -188,7 +218,7 @@ void mqtt_client_task_execute(void* pvParameters) {
         if (is_mqtt_connected) {
             if ((firmware_event_bits & WIFI_CONNECTED_STA) == 0) {
                 stop_mqtt_client();
-            } else if (firmware_event_bits & TIME_SYNCED){
+            } else if (firmware_event_bits & TIME_SYNCED) {
                 mqtt_publish_data();
             }
         } else {
