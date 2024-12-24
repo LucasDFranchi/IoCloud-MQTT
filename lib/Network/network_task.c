@@ -20,7 +20,7 @@
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
 
-static const char *TAG                      = "Network";          ///< Tag for logging.
+static const char *TAG                      = "Network Task";     ///< Tag for logging.
 static const char AP_SSID[]                 = "Titanium\0";       ///< Access Point SSID.
 static const char AP_PASSWORD[]             = "root1234\0";       ///< Access Point password.
 static const uint8_t AP_CHANNEL             = 1;                  ///< Access Point channel (1-14 depending on region).
@@ -58,7 +58,7 @@ static wifi_config_t sta_config         = {0};    ///< Configuration structure f
  * The event group helps in synchronizing events across tasks, enabling efficient
  * coordination of system activities.
  */
-static EventGroupHandle_t* firmware_event_group = NULL;
+static EventGroupHandle_t *firmware_event_group = NULL;
 
 /**
  * @brief Event handler for Wi-Fi-related events.
@@ -267,7 +267,7 @@ esp_err_t network_set_credentials(const char *ssid, const char *password) {
  * @param[in] pvParameters Pointer to task parameters (TaskHandle_t).
  */
 void network_task_execute(void *pvParameters) {
-    firmware_event_group = (EventGroupHandle_t*)pvParameters;
+    firmware_event_group = (EventGroupHandle_t *)pvParameters;
     if ((network_task_initialize() != ESP_OK) || (firmware_event_group == NULL)) {
         vTaskDelete(NULL);
     }

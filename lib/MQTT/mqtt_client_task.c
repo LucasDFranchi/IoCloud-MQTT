@@ -14,7 +14,7 @@
  * @file
  * @brief MQTT client task implementation for managing MQTT connection and publishing sensor data.
  */
-static const char* TAG                      = "MQTTProcess";
+static const char* TAG                      = "MQTT Task";
 static esp_mqtt_client_handle_t mqtt_client = {0};
 static bool is_mqtt_connected               = false;
 
