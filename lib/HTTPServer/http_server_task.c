@@ -4,7 +4,7 @@
 #include "http_server_task.h"
 #include "network_task.h"
 
-static const char* TAG            = "HTTPServerProcess"; /**< Logging tag for HTTPServerProcess class. */
+static const char* TAG            = "HTTP Server Task"; /**< Logging tag for HTTPServerProcess class. */
 static httpd_config_t config      = HTTPD_DEFAULT_CONFIG();
 static httpd_handle_t http_server = NULL;
 static bool is_server_connected   = false;

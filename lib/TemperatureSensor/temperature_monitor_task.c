@@ -14,9 +14,9 @@
  * and log the results.
  */
 
-static aht10_data_st aht10_data             = {0};                    ///< Structure to hold the temperature and humidity data.
-static temperature_data_st temperature_data = {0};                    ///< Structure to hold the temperature and humidity data for external use.
-static const char* TAG                      = "Temperature Monitor";  ///< Tag used for logging.
+static aht10_data_st aht10_data             = {0};                         ///< Structure to hold the temperature and humidity data.
+static temperature_data_st temperature_data = {0};                         ///< Structure to hold the temperature and humidity data for external use.
+static const char* TAG                      = "Temperature Monitor Task";  ///< Tag used for logging.
 
 QueueHandle_t sensor_data_queue = NULL;
 
