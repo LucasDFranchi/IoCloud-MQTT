@@ -1,6 +1,7 @@
 #include "esp_log.h"
 
 #include "events_definition.h"
+#include "tasks_definition.h"
 #include "http_server_task.h"
 #include "network_task.h"
 
@@ -297,6 +298,6 @@ void http_server_task_execute(void* pvParameters) {
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(HTTP_SERVER_TASK_DELAY));
     }
 }

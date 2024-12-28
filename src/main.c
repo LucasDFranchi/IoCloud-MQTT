@@ -3,6 +3,7 @@
 #include "mqtt_client_task.h"
 #include "temperature_monitor_task.h"
 #include "sntp_task.h"
+#include "tasks_definition.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -50,41 +51,41 @@ void app_main() {
     
     xTaskCreate(
         network_task_execute,
-        "Network Task",
-        2048 * 10,
+        NETWORK_TASK_NAME,
+        NETWORK_TASK_STACK_SIZE,
         (void *)&firmware_event_group,
-        tskIDLE_PRIORITY,
+        NETWORK_TASK_PRIORITY,
         NULL);
 
     xTaskCreate(
         http_server_task_execute,
-        "HTTP Server Task",
-        2048 * 10,
+        HTTP_SERVER_TASK_NAME,
+        HTTP_SERVER_TASK_STACK_SIZE,
         (void *)&firmware_event_group,
-        tskIDLE_PRIORITY,
+        HTTP_SERVER_TASK_PRIORITY,
         NULL);
 
     xTaskCreate(
         temperature_monitor_task_execute,
-        "Temperature Monitoring Task",
-        2048 * 10,
+        TEMPERATURE_MONITOR_TASK_NAME,
+        TEMPERATURE_MONITOR_TASK_STACK_SIZE,
         NULL,
-        tskIDLE_PRIORITY,
+        TEMPERATURE_MONITOR_TASK_PRIORITY,
         NULL);       
 
     xTaskCreate(
         mqtt_client_task_execute,
-        "MQTT Task",
-        2048 * 10,
+        MQTT_CLIENT_TASK_NAME,
+        MQTT_CLIENT_TASK_STACK_SIZE,
         (void *)&firmware_event_group,
-        tskIDLE_PRIORITY,
+        MQTT_CLIENT_TASK_PRIORITY,
         NULL);       
 
     xTaskCreate(
         sntp_task_execute,
-        "SNTP Task",
-        2048 * 10,
+        SNTP_TASK_NAME,
+        SNTP_TASK_STACK_SIZE,
         (void *)&firmware_event_group,
-        tskIDLE_PRIORITY,
+        SNTP_TASK_PRIORITY,
         NULL);       
 }

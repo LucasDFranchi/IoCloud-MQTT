@@ -11,6 +11,7 @@
 
 #include "sntp_task.h"
 #include "events_definition.h"
+#include "tasks_definition.h"
 
 #include "esp_log.h"
 #include "lwip/apps/sntp.h"
@@ -93,7 +94,7 @@ void sntp_task_execute(void *pvParameters) {
             sntp_task_sync_time_obtain_time();
         }
 
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(SNTP_TASK_DELAY));
 
         if (is_sntp_synced) {
             ESP_LOGI(TAG, "Time synchronization successful. Exiting SNTP task.");

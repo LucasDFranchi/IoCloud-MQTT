@@ -1,4 +1,5 @@
 #include "temperature_monitor_task.h"
+#include "tasks_definition.h"
 #include "Driver/aht10.h"
 #include "esp_log.h"
 
@@ -59,6 +60,6 @@ void temperature_monitor_task_execute(void* pvParameters) {
             ESP_LOGW(TAG, "Failed to send data to queue");
         }
 
-        vTaskDelay(pdMS_TO_TICKS(1500));
+        vTaskDelay(pdMS_TO_TICKS(TEMPERATURE_MONITOR_TASK_DELAY));
     }
 }

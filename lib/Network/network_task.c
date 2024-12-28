@@ -8,6 +8,7 @@
  */
 #include "network_task.h"
 #include "events_definition.h"
+#include "tasks_definition.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -308,6 +309,6 @@ void network_task_execute(void *pvParameters) {
             }
         } while (0);
 
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(NETWORK_TASK_DELAY));
     }
 }
