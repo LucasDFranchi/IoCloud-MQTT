@@ -10,22 +10,18 @@
  */
 
 #include "sntp_task.h"
-#include "events_definition.h"
-#include "tasks_definition.h"
-
 #include "esp_log.h"
+#include "global_config.h"
 #include "lwip/apps/sntp.h"
 
 /**
- * @brief Event group for signaling system status and events.
+ * @brief Pointer to the global configuration structure.
  *
- * This event group is used to communicate various system events and states between
- * different tasks. It provides flags that other tasks can check to determine the
- * status of Ethernet connection, IP acquisition, and other critical system states.
- * The event group helps in synchronizing events across tasks, enabling efficient
- * coordination of system activities.
+ * This variable is used to synchronize and manage all FreeRTOS events and queues
+ * across the system. It provides a centralized configuration and state management
+ * for consistent and efficient event handling. Ensure proper initialization before use.
  */
-static EventGroupHandle_t *firmware_event_group = NULL;
+static global_config_st *global_config = NULL;
 
 static const char *TAG          = "SNTP Task";  ///< Tag for logging
 static bool is_sntp_initialized = false;        ///< Tracks if SNTP has been initialized
@@ -56,9 +52,9 @@ static void sntp_task_sync_time_obtain_time(void) {
     }
 
     if (timeinfo.tm_year < (2020 - 1900)) {
-        xEventGroupClearBits(*firmware_event_group, TIME_SYNCED);
+        xEventGroupClearBits(global_config->firmware_event_group, TIME_SYNCED);
     } else {
-        xEventGroupSetBits(*firmware_event_group, TIME_SYNCED);
+        xEventGroupSetBits(global_config->firmware_event_group, TIME_SYNCED);
         is_sntp_synced = true;
     }
 }
@@ -75,14 +71,14 @@ static void sntp_task_sync_time_obtain_time(void) {
 void sntp_task_execute(void *pvParameters) {
     ESP_LOGI(TAG, "Starting SNTP task execution...");
 
-    firmware_event_group = (EventGroupHandle_t *)pvParameters;
-    if (firmware_event_group == NULL || *firmware_event_group == NULL) {
-        ESP_LOGE(TAG, "Event group is not initialized.");
+    global_config = (global_config_st *)pvParameters;
+    if (global_config == NULL || global_config->firmware_event_group == NULL) {
+        ESP_LOGE(TAG, "Failed to initialize SNTP task");
         vTaskDelete(NULL);
     }
 
     ESP_LOGI(TAG, "Waiting for Wi-Fi connection...");
-    EventBits_t firmware_event_bits = xEventGroupWaitBits(*firmware_event_group,
+    EventBits_t firmware_event_bits = xEventGroupWaitBits(global_config->firmware_event_group,
                                                           WIFI_CONNECTED_STA,
                                                           pdFALSE,
                                                           pdFALSE,

@@ -1,31 +1,28 @@
 #include "mqtt_client_task.h"
+#include "application_task.h"
 #include "esp_log.h"
-#include "events_definition.h"
 #include "freertos/FreeRTOS.h"
+#include "global_config.h"
 #include "mqtt_client.h"
 #include "network_task.h"
-#include "temperature_monitor_task.h"
 #include "utils.h"
-
 /**
  * @file
  * @brief MQTT client task implementation for managing MQTT connection and publishing sensor data.
  */
-static const char* TAG                      = "MQTT Task";
-static esp_mqtt_client_handle_t mqtt_client = {0};
-static bool is_mqtt_connected               = false;
-char unique_id[13]                          = {0};
-
 /**
- * @brief Event group for signaling system status and events.
+ * @brief Pointer to the global configuration structure.
  *
- * This event group is used to communicate various system events and states between
- * different tasks. It provides flags that other tasks can check to determine the
- * status of Ethernet connection, IP acquisition, and other critical system states.
- * The event group helps in synchronizing events across tasks, enabling efficient
- * coordination of system activities.
+ * This variable is used to synchronize and manage all FreeRTOS events and queues
+ * across the system. It provides a centralized configuration and state management
+ * for consistent and efficient event handling. Ensure proper initialization before use.
  */
-static EventGroupHandle_t* firmware_event_group = NULL;
+static global_config_st* global_config = NULL;
+
+static const char* TAG                      = "MQTT Task";  ///< Log tag for MQTT task.
+static esp_mqtt_client_handle_t mqtt_client = {0};          ///< MQTT client handle.
+static bool is_mqtt_connected               = false;        ///< MQTT connection status.
+char unique_id[13]                          = {0};          ///< Device unique ID (12 chars + null terminator).
 
 /**
  * @brief Handles MQTT events triggered by the client.
@@ -186,7 +183,7 @@ static void mqtt_publish_humidity(float humidity) {
 static void mqtt_publish_data(void) {
     if (mqtt_client) {
         temperature_data_st temperature_data = {0};
-        if (xQueueReceive(sensor_data_queue, &temperature_data, pdMS_TO_TICKS(100))) {
+        if (xQueueReceive(global_config->app_data_queue, &temperature_data, pdMS_TO_TICKS(100))) {
             mqtt_publish_temperature(temperature_data.temperature);
             mqtt_publish_humidity(temperature_data.humidity);
         }
@@ -203,13 +200,17 @@ static void mqtt_publish_data(void) {
  * @param[in] pvParameters User-defined parameters (not used).
  */
 void mqtt_client_task_execute(void* pvParameters) {
-    firmware_event_group = (EventGroupHandle_t*)pvParameters;
-    if ((mqtt_client_task_initialize() != ESP_OK) || (firmware_event_group == NULL)) {
+    global_config = (global_config_st*)pvParameters;
+    if ((mqtt_client_task_initialize() != ESP_OK) ||
+        (global_config->firmware_event_group == NULL) ||
+        (global_config->app_data_queue == NULL) ||
+        (global_config == NULL)) {
+        ESP_LOGE(TAG, "Failed to initialize MQTT task");
         vTaskDelete(NULL);
     }
 
     while (1) {
-        EventBits_t firmware_event_bits = xEventGroupWaitBits(*firmware_event_group,
+        EventBits_t firmware_event_bits = xEventGroupWaitBits(global_config->firmware_event_group,
                                                               WIFI_CONNECTED_STA,
                                                               pdFALSE,
                                                               pdFALSE,

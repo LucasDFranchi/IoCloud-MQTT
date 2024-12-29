@@ -7,16 +7,13 @@
  * connecting to an external network as a STA, and handling network events.
  */
 #include "network_task.h"
-#include "events_definition.h"
-#include "tasks_definition.h"
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "global_config.h"
 #include "lwip/err.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
@@ -51,15 +48,13 @@ static wifi_config_t ap_config          = {0};    ///< Configuration structure f
 static wifi_config_t sta_config         = {0};    ///< Configuration structure for the Station.
 
 /**
- * @brief Event group for signaling system status and events.
- *
- * This event group is used to communicate various system events and states between
- * different tasks. It provides flags that other tasks can check to determine the
- * status of Ethernet connection, IP acquisition, and other critical system states.
- * The event group helps in synchronizing events across tasks, enabling efficient
- * coordination of system activities.
+ * @brief Pointer to the global configuration structure.
+ * 
+ * This variable is used to synchronize and manage all FreeRTOS events and queues 
+ * across the system. It provides a centralized configuration and state management 
+ * for consistent and efficient event handling. Ensure proper initialization before use.
  */
-static EventGroupHandle_t *firmware_event_group = NULL;
+static global_config_st* global_config = NULL;
 
 /**
  * @brief Event handler for Wi-Fi-related events.
@@ -77,12 +72,12 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         switch (event_id) {
             case WIFI_EVENT_AP_STACONNECTED:
                 ESP_LOGI(TAG, "WIFI_EVENT_AP_STACONNECTED");
-                xEventGroupSetBits(*firmware_event_group, WIFI_CONNECTED_AP);
+                xEventGroupSetBits(global_config->firmware_event_group, WIFI_CONNECTED_AP);
                 network_status.is_connect_ap = true;
                 break;
             case WIFI_EVENT_AP_STADISCONNECTED:
                 ESP_LOGI(TAG, "WIFI_EVENT_AP_STADISCONNECTED");
-                xEventGroupClearBits(*firmware_event_group, WIFI_CONNECTED_AP);
+                xEventGroupClearBits(global_config->firmware_event_group, WIFI_CONNECTED_AP);
                 network_status.is_connect_ap = false;
                 break;
             case WIFI_EVENT_STA_START:
@@ -90,7 +85,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 break;
             case WIFI_EVENT_STA_DISCONNECTED:
                 ESP_LOGI(TAG, "WIFI_EVENT_STA_DISCONNECTED");
-                xEventGroupClearBits(*firmware_event_group, WIFI_CONNECTED_STA);
+                xEventGroupClearBits(global_config->firmware_event_group, WIFI_CONNECTED_STA);
                 network_status.is_connect_sta = false;
                 break;
             case WIFI_EVENT_STA_CONNECTED:
@@ -103,7 +98,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
                 ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
 
-                xEventGroupSetBits(*firmware_event_group, WIFI_CONNECTED_STA);
+                xEventGroupSetBits(global_config->firmware_event_group, WIFI_CONNECTED_STA);
                 network_status.is_connect_sta = true;
                 break;
         }
@@ -268,8 +263,11 @@ esp_err_t network_set_credentials(const char *ssid, const char *password) {
  * @param[in] pvParameters Pointer to task parameters (TaskHandle_t).
  */
 void network_task_execute(void *pvParameters) {
-    firmware_event_group = (EventGroupHandle_t *)pvParameters;
-    if ((network_task_initialize() != ESP_OK) || (firmware_event_group == NULL)) {
+    global_config = (global_config_st *)pvParameters;
+    if ((network_task_initialize() != ESP_OK) ||
+        (global_config == NULL) ||
+        (global_config->firmware_event_group == NULL)) {
+        ESP_LOGE(TAG, "Failed to initialize network task");
         vTaskDelete(NULL);
     }
 

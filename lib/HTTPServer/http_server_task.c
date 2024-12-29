@@ -1,25 +1,22 @@
 #include "esp_log.h"
 
-#include "events_definition.h"
-#include "tasks_definition.h"
+#include "global_config.h"
 #include "http_server_task.h"
 #include "network_task.h"
+
+/**
+ * @brief Pointer to the global configuration structure.
+ *
+ * This variable is used to synchronize and manage all FreeRTOS events and queues
+ * across the system. It provides a centralized configuration and state management
+ * for consistent and efficient event handling. Ensure proper initialization before use.
+ */
+static global_config_st* global_config = NULL;
 
 static const char* TAG            = "HTTP Server Task"; /**< Logging tag for HTTPServerProcess class. */
 static httpd_config_t config      = HTTPD_DEFAULT_CONFIG();
 static httpd_handle_t http_server = NULL;
 static bool is_server_connected   = false;
-
-/**
- * @brief Event group for signaling system status and events.
- *
- * This event group is used to communicate various system events and states between
- * different tasks. It provides flags that other tasks can check to determine the
- * status of Ethernet connection, IP acquisition, and other critical system states.
- * The event group helps in synchronizing events across tasks, enabling efficient
- * coordination of system activities.
- */
-static EventGroupHandle_t* firmware_event_group = NULL;
 
 extern const uint8_t bin_data_index_html_start[] asm("_binary_index_html_start");          /**< Start of index.html binary data. */
 extern const uint8_t bin_data_index_html_end[] asm("_binary_index_html_end");              /**< End of index.html binary data. */
@@ -276,13 +273,16 @@ static esp_err_t http_server_task_initialize(void) {
  * @param[in] pvParameters Pointer to task parameters (TaskHandle_t).
  */
 void http_server_task_execute(void* pvParameters) {
-    firmware_event_group = (EventGroupHandle_t*)pvParameters;
-    if ((http_server_task_initialize() != ESP_OK) || (firmware_event_group == NULL)) {
+    global_config = (global_config_st*)pvParameters;
+    if ((http_server_task_initialize() != ESP_OK) ||
+        (global_config == NULL) ||
+        (global_config->firmware_event_group == NULL)) {
+        ESP_LOGE(TAG, "Failed to initialize HTTP Server task");
         vTaskDelete(NULL);
     }
 
     while (1) {
-        EventBits_t firmware_event_bits = xEventGroupWaitBits(*firmware_event_group,
+        EventBits_t firmware_event_bits = xEventGroupWaitBits(global_config->firmware_event_group,
                                                               WIFI_CONNECTED_AP,
                                                               pdFALSE,
                                                               pdFALSE,

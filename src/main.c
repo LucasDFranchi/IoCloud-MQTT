@@ -1,9 +1,9 @@
-#include "network_task.h"
+#include "application_task.h"
+#include "global_config.h"
 #include "http_server_task.h"
 #include "mqtt_client_task.h"
-#include "temperature_monitor_task.h"
+#include "network_task.h"
 #include "sntp_task.h"
-#include "tasks_definition.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -12,16 +12,13 @@
 #include "nvs_flash.h"
 
 /**
- * @brief Event group for signaling system status and events.
+ * @brief Pointer to the global configuration structure.
  *
- * This event group is used to communicate various system events and states between 
- * different tasks. It provides flags that other tasks can check to determine the 
- * status of Ethernet connection, IP acquisition, and other critical system states.
- * The event group helps in synchronizing events across tasks, enabling efficient 
- * coordination of system activities.
+ * This variable is used to synchronize and manage all FreeRTOS events and queues
+ * across the system. It provides a centralized configuration and state management
+ * for consistent and efficient event handling. Ensure proper initialization before use.
  */
-EventGroupHandle_t firmware_event_group = {0};
-
+static global_config_st *global_config = NULL;
 /*
  * @brief Initialize the Non-Volatile Storage (NVS) for the device.
  *
@@ -44,16 +41,16 @@ esp_err_t initialize_nvs(void) {
 }
 
 void app_main() {
-
     ESP_ERROR_CHECK(initialize_nvs());
 
-    firmware_event_group = xEventGroupCreate();
-    
+    global_config.firmware_event_group = xEventGroupCreate();
+    global_config.app_data_queue       = xQueueCreate(10, sizeof(temperature_data_st));
+
     xTaskCreate(
         network_task_execute,
         NETWORK_TASK_NAME,
         NETWORK_TASK_STACK_SIZE,
-        (void *)&firmware_event_group,
+        (void *)&global_config,
         NETWORK_TASK_PRIORITY,
         NULL);
 
@@ -61,31 +58,31 @@ void app_main() {
         http_server_task_execute,
         HTTP_SERVER_TASK_NAME,
         HTTP_SERVER_TASK_STACK_SIZE,
-        (void *)&firmware_event_group,
+        (void *)&global_config,
         HTTP_SERVER_TASK_PRIORITY,
         NULL);
 
     xTaskCreate(
-        temperature_monitor_task_execute,
-        TEMPERATURE_MONITOR_TASK_NAME,
-        TEMPERATURE_MONITOR_TASK_STACK_SIZE,
-        NULL,
-        TEMPERATURE_MONITOR_TASK_PRIORITY,
-        NULL);       
+        application_task_execute,
+        APPLICATION_TASK_NAME,
+        APPLICATION_TASK_STACK_SIZE,
+        (void *)&global_config,
+        APPLICATION_TASK_PRIORITY,
+        NULL);
 
     xTaskCreate(
         mqtt_client_task_execute,
         MQTT_CLIENT_TASK_NAME,
         MQTT_CLIENT_TASK_STACK_SIZE,
-        (void *)&firmware_event_group,
+        (void *)&global_config,
         MQTT_CLIENT_TASK_PRIORITY,
-        NULL);       
+        NULL);
 
     xTaskCreate(
         sntp_task_execute,
         SNTP_TASK_NAME,
         SNTP_TASK_STACK_SIZE,
-        (void *)&firmware_event_group,
+        (void *)&global_config,
         SNTP_TASK_PRIORITY,
-        NULL);       
+        NULL);
 }
