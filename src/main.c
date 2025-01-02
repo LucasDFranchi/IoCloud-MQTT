@@ -9,7 +9,6 @@
 #include "freertos/task.h"
 
 #include "esp_log.h"
-#include "nvs_flash.h"
 
 /**
  * @brief Pointer to the global configuration structure.
@@ -18,33 +17,12 @@
  * across the system. It provides a centralized configuration and state management
  * for consistent and efficient event handling. Ensure proper initialization before use.
  */
-static global_config_st *global_config = NULL;
-/*
- * @brief Initialize the Non-Volatile Storage (NVS) for the device.
- *
- * This function initializes the NVS (Non-Volatile Storage) module, which is used to store
- * configuration data and other persistent information. If the NVS initialization fails due
- * to no free pages or a new version of NVS being found, it will erase the existing NVS data
- * and reinitialize it.
- *
- * @return 
- * - ESP_OK on successful initialization.
- * - Other error codes from `nvs_flash_init()` in case of failure.
- */
-esp_err_t initialize_nvs(void) {
-    esp_err_t result = nvs_flash_init();
-    if (result == ESP_ERR_NVS_NO_FREE_PAGES || result == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        result = nvs_flash_init();
-    }
-    return result;
-}
+static global_config_st global_config = {0};
 
 void app_main() {
-    ESP_ERROR_CHECK(initialize_nvs());
-
-    global_config.firmware_event_group = xEventGroupCreate();
-    global_config.app_data_queue       = xQueueCreate(10, sizeof(temperature_data_st));
+    ESP_ERROR_CHECK(global_config_initialize(&global_config));
+    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "temperature", 1));
+    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "humidity", 1));
 
     xTaskCreate(
         network_task_execute,

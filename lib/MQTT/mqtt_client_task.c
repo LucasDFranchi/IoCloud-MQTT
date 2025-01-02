@@ -1,5 +1,5 @@
 #include "mqtt_client_task.h"
-#include "application_task.h"
+#include "application_external_types.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "global_config.h"
@@ -122,27 +122,27 @@ static void stop_mqtt_client(void) {
  *
  * @param[in] temperature The temperature value to be published (in °C).
  */
-static void mqtt_publish_temperature(float temperature) {
-    char message_buffer[256] = {0};
-    char time_buffer[64]     = {0};
-    char channel[64]         = {0};
+// static void mqtt_publish_temperature(float temperature) {
+//     char message_buffer[256] = {0};
+//     char time_buffer[64]     = {0};
+//     char channel[64]         = {0};
 
-    get_timestamp_in_iso_format(time_buffer, sizeof(time_buffer));
-    snprintf(message_buffer, sizeof(message_buffer),
-             "{\"timestamp\": \"%s\", \"value\": %.2f}",
-             time_buffer, temperature);
+//     get_timestamp_in_iso_format(time_buffer, sizeof(time_buffer));
+//     snprintf(message_buffer, sizeof(message_buffer),
+//              "{\"timestamp\": \"%s\", \"value\": %.2f}",
+//              time_buffer, temperature);
 
-    if (sniprintf(channel, sizeof(channel), "/titanium/%s/temperature", unique_id) < sizeof(channel)) {
-        int msg_id = esp_mqtt_client_publish(mqtt_client, channel, message_buffer, 0, 1, 0);
-        if (msg_id >= 0) {
-            ESP_LOGD(TAG, "Message published successfully, msg_id=%d", msg_id);
-        } else {
-            ESP_LOGE(TAG, "Failed to publish message");
-        }
-    } else {
-        ESP_LOGE(TAG, "Channel buffer too small");
-    }
-}
+//     if (sniprintf(channel, sizeof(channel), "/titanium/%s/temperature", unique_id) < sizeof(channel)) {
+//         int msg_id = esp_mqtt_client_publish(mqtt_client, channel, message_buffer, 0, 1, 0);
+//         if (msg_id >= 0) {
+//             ESP_LOGD(TAG, "Message published successfully, msg_id=%d", msg_id);
+//         } else {
+//             ESP_LOGE(TAG, "Failed to publish message");
+//         }
+//     } else {
+//         ESP_LOGE(TAG, "Channel buffer too small");
+//     }
+// }
 
 /**
  * @brief Publish the humidity data to the MQTT broker.
@@ -153,25 +153,60 @@ static void mqtt_publish_temperature(float temperature) {
  *
  * @param[in] humidity The humidity value to be published (in percentage).
  */
-static void mqtt_publish_humidity(float humidity) {
+static void mqtt_publish_topic(const mqtt_topic_st* mqtt_topic, generic_sensor_data_st* generic_sensor_data) {
     char message_buffer[256] = {0};
     char time_buffer[64]     = {0};
     char channel[64]         = {0};
 
-    get_timestamp_in_iso_format(time_buffer, sizeof(time_buffer));
-    snprintf(message_buffer, sizeof(message_buffer),
-             "{\"timestamp\": \"%s\", \"value\": %.2f}",
-             time_buffer, humidity);
-    if (sniprintf(channel, sizeof(channel), "/titanium/%s/humidity", unique_id) < sizeof(channel)) {
+    do {
+        get_timestamp_in_iso_format(time_buffer, sizeof(time_buffer));
+
+        if (generic_sensor_data == NULL) {
+            ESP_LOGE(TAG, "Sensor data is NULL");
+            break;
+        }
+
+        size_t message_size = 0;
+        switch (generic_sensor_data->type) {
+            case DATA_TYPE_FLOAT:
+                message_size = snprintf(message_buffer,
+                                        sizeof(message_buffer),
+                                        "{\"timestamp\": \"%s\", \"value\": %0.2f}",
+                                        time_buffer,
+                                        generic_sensor_data->value.float_val);
+                break;
+            case DATA_TYPE_INT:
+                message_size = snprintf(message_buffer,
+                                        sizeof(message_buffer),
+                                        "{\"timestamp\": \"%s\", \"value\": %d}",
+                                        time_buffer,
+                                        generic_sensor_data->value.int_val);
+                break;
+            default:
+                ESP_LOGE(TAG, "Invalid data type");
+                break;
+        }
+
+        if (message_size >= sizeof(message_buffer)) {
+            ESP_LOGW(TAG, "Failed to format message");
+            break;
+        }
+
+        size_t channel_size = sniprintf(channel, sizeof(channel), "/titanium/%s/%s", unique_id, mqtt_topic->topic);
+
+        if (channel_size >= sizeof(channel)) {
+            ESP_LOGW(TAG, "Channel buffer too small");
+            break;
+        }
+
         int msg_id = esp_mqtt_client_publish(mqtt_client, channel, message_buffer, 0, 1, 0);
         if (msg_id >= 0) {
             ESP_LOGD(TAG, "Message published successfully, msg_id=%d", msg_id);
         } else {
             ESP_LOGE(TAG, "Failed to publish message");
         }
-    } else {
-        ESP_LOGE(TAG, "Channel buffer too small");
-    }
+
+    } while (0);
 }
 
 /**
@@ -181,11 +216,17 @@ static void mqtt_publish_humidity(float humidity) {
  * and publishes it to the configured MQTT topic.
  */
 static void mqtt_publish_data(void) {
+    generic_sensor_data_st generic_sensor_data = {0};
+
     if (mqtt_client) {
-        temperature_data_st temperature_data = {0};
-        if (xQueueReceive(global_config->app_data_queue, &temperature_data, pdMS_TO_TICKS(100))) {
-            mqtt_publish_temperature(temperature_data.temperature);
-            mqtt_publish_humidity(temperature_data.humidity);
+        for (int i = 0; i < global_config->initalized_mqtt_topics_count; i++) {
+            if (global_config->mqtt_topics[i].queue == NULL) {
+                ESP_LOGE(TAG, "Queue for topic %s is NULL", global_config->mqtt_topics[i].topic);
+                continue;
+            }
+            if (xQueueReceive(global_config->mqtt_topics[i].queue, &generic_sensor_data, pdMS_TO_TICKS(100))) {
+                mqtt_publish_topic(&global_config->mqtt_topics[i], &generic_sensor_data);
+            }
         }
     }
 }
@@ -203,7 +244,6 @@ void mqtt_client_task_execute(void* pvParameters) {
     global_config = (global_config_st*)pvParameters;
     if ((mqtt_client_task_initialize() != ESP_OK) ||
         (global_config->firmware_event_group == NULL) ||
-        (global_config->app_data_queue == NULL) ||
         (global_config == NULL)) {
         ESP_LOGE(TAG, "Failed to initialize MQTT task");
         vTaskDelete(NULL);

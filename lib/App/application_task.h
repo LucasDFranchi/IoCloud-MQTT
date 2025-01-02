@@ -16,18 +16,6 @@
  */
 
 /**
- * @brief Data structure to hold temperature and humidity information.
- *
- * This structure is designed to encapsulate environmental data read from a
- * temperature and humidity sensor. It contains fields for temperature and
- * relative humidity values.
- */
-typedef struct temperature_data_t {
-    float temperature;  ///< Temperature reading from the sensor in degrees Celsius.
-    float humidity;     ///< Humidity reading from the sensor in percentage (%).
-} temperature_data_st;
-
-/**
  * @brief Main execution function for the temperature monitor.
  *
  * This function is responsible for executing the temperature monitor's tasks.
