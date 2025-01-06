@@ -34,17 +34,17 @@ static esp_err_t initialize_nvs(void) {
  * data, and sets the Quality of Service (QoS) level. It ensures that the topic
  * string does not exceed the allocated buffer size and that the queue is successfully created.
  *
- * @param topic Pointer to the mqtt_topic_st structure to be initialized.
+ * @param global_config Pointer to the global_config structure.
  * @param topic_name The name of the MQTT topic to be set.
- * @param data_struct_size The size of the data structure to be queued for the topic.
  * @param qos The Quality of Service (QoS) level for the topic.
+ * @param data_type The type of the data structure to be queued for the topic.
  *
  * @return ESP_OK if the initialization is successful. Otherwise, returns one of the following error codes:
  *         - ESP_ERR_INVALID_ARG if the topic name exceeds the buffer size.
  *         - ESP_ERR_NO_MEM if the queue cannot be created.
  */
-esp_err_t mqtt_topic_initialize(global_config_st *global_config, const char *topic_name, uint8_t qos) {
-    if (global_config == NULL || topic_name == NULL) {
+esp_err_t mqtt_topic_initialize(global_config_st *global_config, const char *topic_name, data_info_st *data_type) {
+    if ((global_config == NULL) || (topic_name == NULL) || (data_type == NULL)) {
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -53,18 +53,24 @@ esp_err_t mqtt_topic_initialize(global_config_st *global_config, const char *top
     }
 
     mqtt_topic_st *topic = &global_config->mqtt_topics[global_config->initalized_mqtt_topics_count++];
-    
+
+    topic->data_info.direction = data_type->direction;
+    topic->data_info.size      = data_type->size;
+    topic->data_info.type      = data_type->type;
+
     size_t topic_length = snprintf(topic->topic, sizeof(topic->topic), "%s", topic_name);
     if (topic_length >= sizeof(topic->topic)) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    topic->queue = xQueueCreate(MAX_QUEUE_SIZE, sizeof(generic_sensor_data_st));
+    topic->queue = xQueueCreate(MAX_QUEUE_SIZE, data_type->size);
     if (topic->queue == NULL) {
         return ESP_ERR_NO_MEM;
     }
 
-    topic->qos = qos;
+    topic->qos = 1;
+
+    topic->is_initialized = true;
 
     return ESP_OK;
 }
