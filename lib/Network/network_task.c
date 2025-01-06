@@ -271,6 +271,8 @@ void network_task_execute(void *pvParameters) {
         vTaskDelete(NULL);
     }
 
+    network_set_credentials("NETPARQUE_PAOLA", "NPQ196253");
+
     while (1) {
         do {
             if (network_status.is_connect_sta) {

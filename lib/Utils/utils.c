@@ -1,5 +1,7 @@
 #include "utils.h"
 
+#include <stdarg.h>
+#include <stdio.h>
 #include <time.h>
 #include <string.h>
 #include "esp_err.h"
@@ -74,4 +76,65 @@ esp_err_t get_timestamp_in_iso_format(char* buffer, size_t buffer_size) {
     }
 
     return ESP_OK;
+}
+
+/**
+ * @brief Formats an array of characters into a JSON-like string representation.
+ *
+ * This function takes an array of characters (`arr`) and writes it into the `buffer`
+ * as a JSON-like string representation, e.g., `[a,b,c]`. The function ensures that 
+ * no buffer overflow occurs. If there is not enough space in the buffer to write 
+ * the entire output, the function returns 0 to indicate an error.
+ *
+ * @param buffer   Pointer to the buffer where the formatted string will be written.
+ *                 The caller must ensure the buffer is large enough to hold the output.
+ * @param arr      Pointer to the array of characters to format.
+ * @param arr_size The number of elements in the array.
+ * @param max_size The maximum size of the buffer, including space for the null terminator.
+ *
+ * @return The total number of characters written to the buffer, excluding the null terminator,
+ *         or 0 if there is insufficient space in the buffer to write the entire output.
+ *
+ * @note If the function returns 0, the buffer content is considered invalid and should not
+ *       be used.
+ *
+ * @example
+ * char buffer[20];
+ * char arr[] = {'a', 'b', 'c'};
+ * size_t written = snprintf_array(buffer, arr, 3, sizeof(buffer));
+ * if (written > 0) {
+ *     printf("Formatted array: %s\n", buffer); // Output: [a,b,c]
+ * } else {
+ *     printf("Error: Not enough space in the buffer.\n");
+ * }
+ */
+size_t snprintf_array(char* buffer, uint8_t* arr, uint32_t arr_size, uint32_t max_size) {
+    size_t offset = 0;
+
+    if ((buffer == NULL) || (arr == NULL) || (max_size == 0)) {
+        return 0;
+    }
+
+    offset += snprintf(buffer, max_size, "[");
+
+    for (uint32_t i = 0; i < arr_size; i++) {
+        if (i > 0) {
+            offset += snprintf(&buffer[offset], max_size - offset, ",");
+        }
+
+        offset += snprintf(&buffer[offset], max_size - offset, "%d", arr[i]);
+    }
+
+    if ((offset + 1) >= max_size) {
+        return 0;
+    }
+    offset += snprintf(&buffer[offset], max_size - offset, "]");
+
+    if ((offset + 1) <= max_size) {
+        buffer[offset] = '\0';
+    } else {
+        return 0;
+    }
+
+    return offset;
 }
