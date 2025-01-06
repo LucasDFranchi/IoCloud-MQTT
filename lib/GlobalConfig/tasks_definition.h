@@ -37,6 +37,12 @@
 #define HTTP_SERVER_TASK_NAME        "HTTP Server Task"
 #define HTTP_SERVER_TASK_DELAY       1000  // Delay in milliseconds
 
+// HTTP Client Task configuration
+#define HTTP_CLIENT_TASK_PRIORITY    6
+#define HTTP_CLIENT_TASK_STACK_SIZE  (2048 * 10)
+#define HTTP_CLIENT_TASK_NAME        "HTTP Client Task"
+#define HTTP_CLIENT_TASK_DELAY       1000  // Delay in milliseconds
+
 // Temperature Monitoring Task configuration
 #define APPLICATION_TASK_PRIORITY   1
 #define APPLICATION_TASK_STACK_SIZE (2048 * 10)
