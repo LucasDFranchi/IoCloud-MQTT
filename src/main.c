@@ -4,6 +4,7 @@
 #include "mqtt_client_task.h"
 #include "network_task.h"
 #include "sntp_task.h"
+#include "watchdog_task.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -88,5 +89,13 @@ void app_main() {
         SNTP_TASK_STACK_SIZE,
         (void *)&global_config,
         SNTP_TASK_PRIORITY,
+        NULL);
+
+    xTaskCreate(
+        watchdog_task_execute,
+        WATCHDOG_TASK_NAME,
+        WATCHDOG_TASK_STACK_SIZE,
+        NULL,
+        WATCHDOG_TASK_PRIORITY,
         NULL);
 }
