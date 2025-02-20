@@ -8,12 +8,12 @@
  */
 #include "network_task.h"
 #include "esp_event.h"
-#include "esp_log.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "global_config.h"
+#include "logger.h"
 #include "lwip/err.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
@@ -49,12 +49,12 @@ static wifi_config_t sta_config         = {0};    ///< Configuration structure f
 
 /**
  * @brief Pointer to the global configuration structure.
- * 
- * This variable is used to synchronize and manage all FreeRTOS events and queues 
- * across the system. It provides a centralized configuration and state management 
+ *
+ * This variable is used to synchronize and manage all FreeRTOS events and queues
+ * across the system. It provides a centralized configuration and state management
  * for consistent and efficient event handling. Ensure proper initialization before use.
  */
-static global_config_st* global_config = NULL;
+static global_config_st *global_config = NULL;
 
 /**
  * @brief Event handler for Wi-Fi-related events.
@@ -71,32 +71,32 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
     if (event_base == WIFI_EVENT) {
         switch (event_id) {
             case WIFI_EVENT_AP_STACONNECTED:
-                ESP_LOGI(TAG, "WIFI_EVENT_AP_STACONNECTED");
+                logger_print(INFO, TAG, "WIFI_EVENT_AP_STACONNECTED");
                 xEventGroupSetBits(global_config->firmware_event_group, WIFI_CONNECTED_AP);
                 network_status.is_connect_ap = true;
                 break;
             case WIFI_EVENT_AP_STADISCONNECTED:
-                ESP_LOGI(TAG, "WIFI_EVENT_AP_STADISCONNECTED");
+                logger_print(INFO, TAG, "WIFI_EVENT_AP_STADISCONNECTED");
                 xEventGroupClearBits(global_config->firmware_event_group, WIFI_CONNECTED_AP);
                 network_status.is_connect_ap = false;
                 break;
             case WIFI_EVENT_STA_START:
-                ESP_LOGI(TAG, "WIFI_EVENT_STA_START");
+                logger_print(INFO, TAG, "WIFI_EVENT_STA_START");
                 break;
             case WIFI_EVENT_STA_DISCONNECTED:
-                ESP_LOGI(TAG, "WIFI_EVENT_STA_DISCONNECTED");
+                logger_print(INFO, TAG, "WIFI_EVENT_STA_DISCONNECTED");
                 xEventGroupClearBits(global_config->firmware_event_group, WIFI_CONNECTED_STA);
                 network_status.is_connect_sta = false;
                 break;
             case WIFI_EVENT_STA_CONNECTED:
-                ESP_LOGI(TAG, "WIFI_EVENT_STA_CONNECTED");
+                logger_print(INFO, TAG, "WIFI_EVENT_STA_CONNECTED");
                 break;
         }
     } else if (event_base == IP_EVENT) {
         switch (event_id) {
             case IP_EVENT_STA_GOT_IP:
                 ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-                ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
+                logger_print(INFO, TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
 
                 xEventGroupSetBits(global_config->firmware_event_group, WIFI_CONNECTED_STA);
                 network_status.is_connect_sta = true;
@@ -130,12 +130,12 @@ static esp_err_t set_access_point_mode(void) {
 
     size_t ssid_len = snprintf((char *)ap_config.ap.ssid, sizeof(ap_config.ap.ssid), "%s", AP_SSID);
     if (ssid_len >= sizeof(sta_config.ap.ssid)) {
-        ESP_LOGW(TAG, "SSID truncated: original length %zu", ssid_len);
+        logger_print(WARN, TAG, "SSID truncated: original length %zu", ssid_len);
         result = ESP_FAIL;
     }
     size_t password_len = snprintf((char *)ap_config.ap.password, sizeof(ap_config.ap.password), "%s", AP_PASSWORD);
     if (password_len >= sizeof(sta_config.sta.password)) {
-        ESP_LOGW(TAG, "Password truncated: original length %zu", password_len);
+        logger_print(WARN, TAG, "Password truncated: original length %zu", password_len);
         result = ESP_FAIL;
     }
 
@@ -227,18 +227,18 @@ esp_err_t network_set_credentials(const char *ssid, const char *password) {
     esp_err_t result = ESP_OK;
 
     if (ssid == NULL || password == NULL) {
-        ESP_LOGE(TAG, "Invalid credentials: SSID or password is NULL");
+        logger_print(ERR, TAG, "Invalid credentials: SSID or password is NULL");
         result = ESP_FAIL;
     } else {
         size_t ssid_len = snprintf((char *)sta_config.sta.ssid, sizeof(sta_config.sta.ssid), "%s", ssid);
         if (ssid_len >= sizeof(sta_config.sta.ssid)) {
-            ESP_LOGW(TAG, "SSID truncated: original length %zu", ssid_len);
+            logger_print(WARN, TAG, "SSID truncated: original length %zu", ssid_len);
             result = ESP_FAIL;
         }
 
         size_t password_len = snprintf((char *)sta_config.sta.password, sizeof(sta_config.sta.password), "%s", password);
         if (password_len >= sizeof(sta_config.sta.password)) {
-            ESP_LOGW(TAG, "Password truncated: original length %zu", password_len);
+            logger_print(WARN, TAG, "Password truncated: original length %zu", password_len);
             result = ESP_FAIL;
         }
     }
@@ -267,7 +267,7 @@ void network_task_execute(void *pvParameters) {
     if ((network_task_initialize() != ESP_OK) ||
         (global_config == NULL) ||
         (global_config->firmware_event_group == NULL)) {
-        ESP_LOGE(TAG, "Failed to initialize network task");
+        logger_print(ERR, TAG, "Failed to initialize network task");
         vTaskDelete(NULL);
     }
 
@@ -290,21 +290,21 @@ void network_task_execute(void *pvParameters) {
             }
 
             if (connection_retry_counter < MAX_RECONNECT_ATTEMPTS) {
-                ESP_LOGI(TAG, "Reconnecting to the STA (Attempt %d of %d)...",
-                         connection_retry_counter + 1,
-                         MAX_RECONNECT_ATTEMPTS);
+                logger_print(DEBUG, TAG, "Reconnecting to the STA (Attempt %d of %d)...",
+                             connection_retry_counter + 1,
+                             MAX_RECONNECT_ATTEMPTS);
 
                 esp_err_t err = ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
                 if (err == ESP_OK) {
-                    ESP_LOGI(TAG, "Connection attempt initiated.");
+                    logger_print(DEBUG, TAG, "Connection attempt initiated.");
                     connection_retry_counter++;
                 } else {
-                    ESP_LOGE(TAG, "Reconnect attempt failed: %s", esp_err_to_name(err));
+                    logger_print(ERR, TAG, "Reconnect attempt failed: %s", esp_err_to_name(err));
                 }
 
                 vTaskDelay(pdMS_TO_TICKS(RECONNECTION_DELAY_MS));
             } else {
-                ESP_LOGE(TAG, "Max reconnect attempts reached. Stopping further attempts.");
+                logger_print(ERR, TAG, "Max reconnect attempts reached. Stopping further attempts.");
                 is_retry_limit_exceeded = true;
             }
         } while (0);

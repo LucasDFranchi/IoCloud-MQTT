@@ -9,7 +9,7 @@
  * prevent unwanted resets while the system is functioning correctly.
  */
 #include "watchdog_task.h"
-#include "esp_log.h"
+#include "logger.h"
 #include "esp_task_wdt.h"
 #include "global_config.h"
 
@@ -56,10 +56,10 @@ static esp_err_t watchdog_task_initialize(void) {
  * @param pvParameters Unused parameter (can be NULL).
  */
 void watchdog_task_execute(void *pvParameters) {
-    ESP_LOGI(TAG, "Starting Watchdog task execution...");
+    logger_print(INFO, TAG, "Starting Watchdog task execution...");
 
     if (watchdog_task_initialize() != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize Watchdog task");
+        logger_print(ERR, TAG, "Failed to initialize Watchdog task");
         vTaskDelete(NULL);
     }
 

@@ -10,7 +10,7 @@
  */
 
 #include "sntp_task.h"
-#include "esp_log.h"
+#include "logger.h"
 #include "global_config.h"
 #include "lwip/apps/sntp.h"
 
@@ -69,15 +69,15 @@ static void sntp_task_sync_time_obtain_time(void) {
  * @param pvParameters Pointer to the event group handle for synchronization.
  */
 void sntp_task_execute(void *pvParameters) {
-    ESP_LOGI(TAG, "Starting SNTP task execution...");
+    logger_print(INFO, TAG, "Starting SNTP task execution...");
 
     global_config = (global_config_st *)pvParameters;
     if (global_config == NULL || global_config->firmware_event_group == NULL) {
-        ESP_LOGE(TAG, "Failed to initialize SNTP task");
+        logger_print(ERR, TAG, "Failed to initialize SNTP task");
         vTaskDelete(NULL);
     }
 
-    ESP_LOGI(TAG, "Waiting for Wi-Fi connection...");
+    logger_print(DEBUG, TAG, "Waiting for Wi-Fi connection...");
     EventBits_t firmware_event_bits = xEventGroupWaitBits(global_config->firmware_event_group,
                                                           WIFI_CONNECTED_STA,
                                                           pdFALSE,
@@ -86,18 +86,18 @@ void sntp_task_execute(void *pvParameters) {
 
     while (1) {
         if (firmware_event_bits & WIFI_CONNECTED_STA) {
-            ESP_LOGI(TAG, "Trying to synchronize time...");
+            logger_print(DEBUG, TAG, "Trying to synchronize time...");
             sntp_task_sync_time_obtain_time();
         }
 
         vTaskDelay(pdMS_TO_TICKS(SNTP_TASK_DELAY));
 
         if (is_sntp_synced) {
-            ESP_LOGI(TAG, "Time synchronization successful. Exiting SNTP task.");
+            logger_print(INFO, TAG, "Time synchronization successful. Exiting SNTP task.");
             break;
         }
     }
 
-    ESP_LOGI(TAG, "SNTP task completed. Deleting task...");
+    logger_print(INFO, TAG, "SNTP task completed. Deleting task...");
     vTaskDelete(NULL);
 }

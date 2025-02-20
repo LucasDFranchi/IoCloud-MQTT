@@ -6,10 +6,10 @@
 #include "sntp_task.h"
 #include "watchdog_task.h"
 
+#include "logger.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
-#include "esp_log.h"
 
 /**
  * @brief Pointer to the global configuration structure.
@@ -50,6 +50,8 @@ void app_main() {
         .direction = PUBLISH,
     };
     ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "tag/response/write", &response_write_info));
+
+    logger_initialize(&global_config);
 
     xTaskCreate(
         network_task_execute,

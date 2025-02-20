@@ -1,4 +1,4 @@
-#include "esp_log.h"
+#include "logger.h"
 
 #include "global_config.h"
 #include "http_server_task.h"
@@ -226,11 +226,11 @@ esp_err_t start_http_server(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     esp_err_t result      = httpd_start(&http_server, &config);
     if (result == ESP_OK) {
-        ESP_LOGI(TAG, "HTTP server started successfully");
+        logger_print(INFO, TAG, "HTTP server started successfully");
         initialize_request_list();
         is_server_connected = true;
     } else {
-        ESP_LOGE(TAG, "Failed to start HTTP server: %s", esp_err_to_name(result));
+        logger_print(ERR, TAG, "Failed to start HTTP server: %s", esp_err_to_name(result));
     }
     return result;
 }
@@ -245,7 +245,7 @@ void stop_http_server(void) {
         httpd_stop(http_server);
         http_server         = NULL;
         is_server_connected = false;
-        ESP_LOGI(TAG, "HTTP server stopped");
+        logger_print(INFO, TAG, "HTTP server stopped");
     }
 }
 
@@ -277,7 +277,7 @@ void http_server_task_execute(void* pvParameters) {
     if ((http_server_task_initialize() != ESP_OK) ||
         (global_config == NULL) ||
         (global_config->firmware_event_group == NULL)) {
-        ESP_LOGE(TAG, "Failed to initialize HTTP Server task");
+        logger_print(ERR, TAG, "Failed to initialize HTTP Server task");
         vTaskDelete(NULL);
     }
 

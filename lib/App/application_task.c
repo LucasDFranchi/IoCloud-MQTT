@@ -1,7 +1,7 @@
 #include "application_task.h"
 #include "Driver/pn532.h"
 #include "application_external_types.h"
-#include "esp_log.h"
+#include "logger.h"
 #include "global_config.h"
 
 #include "esp_err.h"
@@ -78,7 +78,7 @@ esp_err_t write_sector(uint8_t *uid, uint8_t uid_len, uint8_t sector, uint8_t bl
     uint8_t block_index  = block_offset + block;
 
     if (block >= MIFARE_DATA_BLOCKS_PER_SECTOR) {
-        ESP_LOGE(TAG, "%s - Block %d is out of range for Sector %d.\n",
+        logger_print(ERR, TAG, "%s - Block %d is out of range for Sector %d.\n",
                  __func__,
                  block,
                  sector);
@@ -86,7 +86,7 @@ esp_err_t write_sector(uint8_t *uid, uint8_t uid_len, uint8_t sector, uint8_t bl
     }
 
     if (!uid || !data) {
-        ESP_LOGE(TAG, "%s - Invalid input: UID or data buffer is NULL.",
+        logger_print(ERR, TAG, "%s - Invalid input: UID or data buffer is NULL.",
                  __func__);
         return ESP_ERR_INVALID_ARG;
     }
@@ -96,14 +96,14 @@ esp_err_t write_sector(uint8_t *uid, uint8_t uid_len, uint8_t sector, uint8_t bl
                                          block_offset + MIFARE_TRAILER_BLOCK,
                                          USE_KEY_A,
                                          DEFAULT_KEY_A)) {
-        ESP_LOGE(TAG, "%s - Authentication failed for Sector %d.\n",
+        logger_print(ERR, TAG, "%s - Authentication failed for Sector %d.\n",
                  __func__,
                  sector);
         return MIFARE_AUTH_ERROR;
     }
 
     if (!mifareclassic_WriteDataBlock(block_index, data)) {
-        ESP_LOGE(TAG, "%s - Failed to write Block %d of Sector %d.\n",
+        logger_print(ERR, TAG, "%s - Failed to write Block %d of Sector %d.\n",
                  __func__,
                  block,
                  sector);
@@ -139,13 +139,13 @@ esp_err_t read_sector(uint8_t *uid, uint8_t uid_len, uint8_t sector, uint8_t blo
     uint8_t block_index  = block_offset + block;
 
     if (!uid || !read_data) {
-        ESP_LOGE(TAG, "%s - Invalid input: UID or data buffer is NULL.",
+        logger_print(ERR, TAG, "%s - Invalid input: UID or data buffer is NULL.",
                  __func__);
         return ESP_ERR_INVALID_ARG;
     }
 
     if (block >= MIFARE_DATA_BLOCKS_PER_SECTOR) {
-        ESP_LOGE(TAG, "%s - Block %d is out of range for Sector %d.",
+        logger_print(ERR, TAG, "%s - Block %d is out of range for Sector %d.",
                  __func__,
                  block,
                  sector);
@@ -153,7 +153,7 @@ esp_err_t read_sector(uint8_t *uid, uint8_t uid_len, uint8_t sector, uint8_t blo
     }
 
     if (read_data_len < MIFARE_BLOCK_SIZE) {
-        ESP_LOGE(TAG, "%s - Output buffer size is too small for the data.", __func__);
+        logger_print(ERR, TAG, "%s - Output buffer size is too small for the data.", __func__);
         return MIFARE_INVALID_BLOCK_SIZE;
     }
 
@@ -162,15 +162,14 @@ esp_err_t read_sector(uint8_t *uid, uint8_t uid_len, uint8_t sector, uint8_t blo
                                          block_offset + MIFARE_TRAILER_BLOCK,
                                          USE_KEY_A,
                                          DEFAULT_KEY_A)) {
-        ESP_LOGE(TAG, "%s - Authentication failed for Sector %d.",
+        logger_print(ERR, TAG, "%s - Authentication failed for Sector %d.",
                  __func__,
                  sector);
         return MIFARE_AUTH_ERROR;
     }
 
-    // if (!mifareclassic_ReadDataBlock(block_index, read_data + (block * MIFARE_BLOCK_SIZE))) {
     if (!mifareclassic_ReadDataBlock(block_index, read_data)) {
-        ESP_LOGE(TAG, "%s - Failed to read Block %d of Sector %d.",
+        logger_print(ERR, TAG, "%s - Failed to read Block %d of Sector %d.",
                  __func__,
                  block,
                  sector);
@@ -213,7 +212,7 @@ static bool has_tag_in_field(uuid_ut *uid, uint8_t *uid_len) {
                       pdMS_TO_TICKS(100));
 
     if (is_data_in_queue == pdTRUE) {
-        ESP_LOGI(TAG, "%s - New configuration received: Sector %d, Block %d, Mode %d",
+        logger_print(DEBUG, TAG, "%s - New configuration received: Sector %d, Block %d, Mode %d",
                  __func__,
                  command_config->sector,
                  command_config->block,
@@ -242,14 +241,14 @@ static esp_err_t process_command_write(uuid_ut *uid, size_t uid_len, command_wri
     int8_t status = 0;
 
     if (!command_write || !response_write || !uid) {
-        ESP_LOGE(TAG, "%s - Invalid input: command_write or response_write or uid is NULL.",
+        logger_print(ERR, TAG, "%s - Invalid input: command_write or response_write or uid is NULL.",
                  __func__);
         return ESP_ERR_INVALID_ARG;
     }
 
     if (write_sector(uid->bytes, uid_len, command_write->sector, command_write->block, command_write->data) != ESP_OK) {
         status = -1;
-        ESP_LOGW(TAG, "%s - Failed to write data to Sector %d Block %d.",
+        logger_print(ERR, TAG, "%s - Failed to write data to Sector %d Block %d.",
                  __func__,
                  command_write->sector,
                  command_write->block);
@@ -264,7 +263,7 @@ static esp_err_t process_command_write(uuid_ut *uid, size_t uid_len, command_wri
                                    response_write,
                                    pdMS_TO_TICKS(100));
     if (result != pdPASS) {
-        ESP_LOGW(TAG,
+        logger_print(ERR, TAG,
                  "%s - Failed to send %s data to queue",
                  __func__,
                  global_config->mqtt_topics[DATA_STRUCT_RESPONSE_WRITE].topic);
@@ -293,7 +292,7 @@ static esp_err_t process_command_write(uuid_ut *uid, size_t uid_len, command_wri
  */
 static esp_err_t process_response_read(uuid_ut *uid, size_t uid_len, command_config_st *command_config, response_read_st *response_read) {
     if (!command_config || !response_read || !uid) {
-        ESP_LOGE(TAG, "Invalid input: command_config or response_read or uid is NULL.");
+        logger_print(ERR, TAG, "Invalid input: command_config or response_read or uid is NULL.");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -309,23 +308,22 @@ static esp_err_t process_response_read(uuid_ut *uid, size_t uid_len, command_con
         response_read->block        = command_config->block;
         response_read->uuid.integer = uid->integer;
 
-        printf("Data read from Sector %d Block %d: ", command_config->sector, command_config->block);
+        logger_print(DEBUG, TAG, "Data read from Sector %d Block %d: ", command_config->sector, command_config->block);
         for (int i = 0; i < sizeof(response_read->data); i++) {
-            printf("%02X ", response_read->data[i]);
+            logger_print(DEBUG, TAG, "%02X ", (char)response_read->data[i]);
         }
-        printf("\n");
 
         BaseType_t queue_result = xQueueSend(global_config->mqtt_topics[DATA_STRUCT_RESPONSE_READ].queue,
                                              response_read,
                                              pdMS_TO_TICKS(100));
         if (queue_result != pdPASS) {
-            ESP_LOGW(TAG, " %s - Failed to send %s data to queue",
+            logger_print(ERR, TAG, " %s - Failed to send %s data to queue",
                      __func__,
                      global_config->mqtt_topics[DATA_STRUCT_RESPONSE_READ].topic);
             return ESP_ERR_TIMEOUT;
         }
     } else {
-        ESP_LOGW(TAG, "%s - Failed to read data from Sector %d Block %d.",
+        logger_print(ERR, TAG, "%s - Failed to read data from Sector %d Block %d.",
                  __func__,
                  command_config->sector,
                  command_config->block);
@@ -347,19 +345,19 @@ static esp_err_t application_task_initialize(void) {
     esp_err_t result = ESP_OK;
 
     if (!init_PN532_I2C(GPIO_NUM_21, GPIO_NUM_22, GPIO_NUM_19, GPIO_NUM_18, I2C_NUM_0)) {
-        ESP_LOGE(TAG, "Failed to initialize PN532");
+        logger_print(ERR, TAG, "Failed to initialize PN532");
         return ESP_FAIL;
     }
 
     uint32_t versiondata = getPN532FirmwareVersion();
     if (!versiondata) {
-        ESP_LOGI(TAG, "Didn't find PN53x board - %ld", versiondata);
+        logger_print(ERR, TAG, "Didn't find PN53x board - %ld", versiondata);
         while (1) {
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
     }
-    ESP_LOGI(TAG, "Found chip PN5 %ld", (versiondata >> 24) & 0xFF);
-    ESP_LOGI(TAG, "Firmware ver. %ld.%ld", (versiondata >> 16) & 0xFF, (versiondata >> 8) & 0xFF);
+    logger_print(DEBUG, TAG, "Found chip PN5 %ld", (versiondata >> 24) & 0xFF);
+    logger_print(DEBUG, TAG, "Firmware ver. %ld.%ld", (versiondata >> 16) & 0xFF, (versiondata >> 8) & 0xFF);
 
     result = SAMConfig() ? ESP_OK : ESP_FAIL;
 
@@ -377,7 +375,7 @@ static esp_err_t application_task_initialize(void) {
 void application_task_execute(void *pvParameters) {
     global_config = (global_config_st *)pvParameters;
     if ((application_task_initialize() != ESP_OK) || (global_config == NULL)) {
-        ESP_LOGE(TAG, " %s - Failed to initialize application task", __func__);
+        logger_print(ERR, TAG, " %s - Failed to initialize application task", __func__);
         vTaskDelete(NULL);
     }
     command_write_st command_write   = {0};

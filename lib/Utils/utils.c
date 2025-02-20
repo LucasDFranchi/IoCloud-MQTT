@@ -1,13 +1,15 @@
 #include "utils.h"
 
+#include "esp_err.h"
+#include "esp_mac.h"
+#include "esp_system.h"
+#include "logger.h"
 #include <stdarg.h>
 #include <stdio.h>
-#include <time.h>
 #include <string.h>
-#include "esp_err.h"
-#include "esp_system.h"
-#include "esp_mac.h"
-#include "esp_log.h"
+#include <time.h>
+
+static const char* TAG = "Utils";  ///< Tag used for logging.
 
 /**
  * @brief Retrieve a unique identifier for the ESP32 based on its MAC address.
@@ -23,9 +25,9 @@
  * @note The MAC address is guaranteed to be unique across devices, providing a reliable
  *       way to identify individual devices in a network.
  */
-void get_unique_id(char *unique_id, size_t max_len) {
-    if (unique_id == NULL || max_len < 13) { // Minimum length is 12 chars + '\0'
-        ESP_LOGE("get_unique_id", "Invalid buffer or buffer size.");
+void get_unique_id(char* unique_id, size_t max_len) {
+    if (unique_id == NULL || max_len < 13) {  // Minimum length is 12 chars + '\0'
+        logger_print(DEBUG, TAG, "%s - Invalid buffer or buffer size.", __func__);
         return;
     }
 
@@ -35,11 +37,11 @@ void get_unique_id(char *unique_id, size_t max_len) {
         snprintf(unique_id, max_len, "%02X%02X%02X%02X%02X%02X",
                  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     } else {
-        ESP_LOGE("get_unique_id", "Failed to retrieve MAC address, error code: %d", err);
+        logger_print(ERR, TAG, "%s - Failed to retrieve MAC address, error code: %d", __func__, err);
         snprintf(unique_id, max_len, "UNKNOWN");
     }
 
-    ESP_LOGI("Utils", "Unique ID: %s", unique_id);
+    logger_print(INFO, TAG, "Unique ID: %s", unique_id);
 }
 
 /**
@@ -82,8 +84,8 @@ esp_err_t get_timestamp_in_iso_format(char* buffer, size_t buffer_size) {
  * @brief Formats an array of characters into a JSON-like string representation.
  *
  * This function takes an array of characters (`arr`) and writes it into the `buffer`
- * as a JSON-like string representation, e.g., `[a,b,c]`. The function ensures that 
- * no buffer overflow occurs. If there is not enough space in the buffer to write 
+ * as a JSON-like string representation, e.g., `[a,b,c]`. The function ensures that
+ * no buffer overflow occurs. If there is not enough space in the buffer to write
  * the entire output, the function returns 0 to indicate an error.
  *
  * @param buffer   Pointer to the buffer where the formatted string will be written.
