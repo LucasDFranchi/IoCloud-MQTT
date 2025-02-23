@@ -14,38 +14,11 @@
  * modules.
  */
 
-// /**
-//  * @enum data_types_e
-//  * @brief Enumeration of supported data types for sensor data.
-//  */
-// typedef enum data_types_e {
-//     DATA_TYPE_INT,   /**< Integer data type. */
-//     DATA_TYPE_FLOAT, /**< Float data type. */
-//     DATA_TYPE_ARRAY, /**< Array data type. */
-// } data_types_et;
-
-// /**
-//  * @struct generic_sensor_data_st
-//  * @brief Represents generic sensor data with a flexible type.
-//  *
-//  * This structure can hold sensor data of either integer or float type, determined
-//  * by the `type` field. The `value` union allows storage of one type at a time.
-//  */
-// typedef struct generic_sensor_data_s {
-//     data_types_et type; /**< The type of data stored in the union. */
-//     union {
-//         int int_val;        /**< Integer value when type is DATA_TYPE_INT. */
-//         float float_val;    /**< Float value when type is DATA_TYPE_FLOAT. */
-//         uint8_t *array_val; /**< Pointer to a dynamically allocated string when type is DATA_TYPE_STRING. */
-//     } value;                /**< Union to hold the sensor data value. */
-//     int num_elements;       /**< Optional: Number of elements in the array */
-// } generic_sensor_data_st;
+ #define MAX_TEMPERATURE_ARRAY_SIZE (4)
 
 typedef enum data_struct_types_e {
-    DATA_STRUCT_COMMAND_CONFIG = 0,
-    DATA_STRUCT_COMMAND_WRITE,
-    DATA_STRUCT_RESPONSE_READ,
-    DATA_STRUCT_RESPONSE_WRITE,
+    DATA_STRUCT_TEMPERATURE_CONFIG = 0,
+    DATA_STRUCT_TEMPERATURE_RESPONSE,
     END_OF_DATA_STRUCT_TYPES,
 } data_struct_types_et;
 
@@ -54,36 +27,15 @@ typedef enum data_direction_s {
     SUBSCRIBE,
 } data_direction_st;
 
-typedef union uuid_u {
-    uint64_t integer;
-    uint8_t bytes[8];
-} uuid_ut;
+typedef struct temperature_config_s {
+    uint32_t time_interval;
+} temperature_config_st;
 
-typedef struct command_config_s {
-    uint8_t block;
-    uint8_t sector;
-    uint8_t mode;
-} command_config_st;
-
-typedef struct command_write_s {
-    uint8_t block;
-    uint8_t sector;
-    uint8_t data[16];
-} command_write_st;
-
-typedef struct response_read_s {
-    uuid_ut uuid;
-    uint8_t block;
-    uint8_t sector;
-    uint8_t data[16];
-} response_read_st;
-
-typedef struct response_write_s {
-    uuid_ut uuid;
-    uint8_t block;
-    uint8_t sector;
-    int8_t status;
-} response_write_st;
+typedef struct temperature_response_s {
+    uint16_t temperature_array[MAX_TEMPERATURE_ARRAY_SIZE];
+    uint16_t internal_temperature;
+    uint16_t humidity;
+} temperature_response_st;
 
 typedef struct data_info_s {
     data_struct_types_et type;
