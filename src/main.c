@@ -23,33 +23,19 @@ static global_config_st global_config = {0};
 void app_main() {
     ESP_ERROR_CHECK(global_config_initialize(&global_config));
 
-    data_info_st command_config_info = {
-        .type      = DATA_STRUCT_COMMAND_CONFIG,
-        .size      = sizeof(command_config_st),
+    data_info_st temperature_config_info = {
+        .type      = DATA_STRUCT_TEMPERATURE_CONFIG,
+        .size      = sizeof(temperature_config_st),
         .direction = SUBSCRIBE,
     };
-    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "tag/command/config", &command_config_info));
+    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "tag/temperature/config", &temperature_config_info));
 
-    data_info_st command_write_info = {
-        .type      = DATA_STRUCT_COMMAND_WRITE,
-        .size      = sizeof(command_write_st),
-        .direction = SUBSCRIBE,
-    };
-    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "tag/command/write", &command_write_info));
-
-    data_info_st response_read_info = {
-        .type      = DATA_STRUCT_RESPONSE_READ,
-        .size      = sizeof(response_read_st),
+    data_info_st temperature_response_info = {
+        .type      = DATA_STRUCT_TEMPERATURE_RESPONSE,
+        .size      = sizeof(temperature_response_st),
         .direction = PUBLISH,
     };
-    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "tag/response/read", &response_read_info));
-
-    data_info_st response_write_info = {
-        .type      = DATA_STRUCT_RESPONSE_WRITE,
-        .size      = sizeof(response_write_st),
-        .direction = PUBLISH,
-    };
-    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "tag/response/write", &response_write_info));
+    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "tag/temperature/response", &temperature_response_info));
 
     xTaskCreate(
         network_task_execute,
