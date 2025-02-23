@@ -123,7 +123,7 @@ static esp_err_t mqtt_publish_temperature_response(const mqtt_topic_st* mqtt_top
                                                    size_t message_buffer_out_len,
                                                    char* message_buffer) {
     temperature_response_st temperature_response = {0};
-    char array_string[64]                        = {0};
+    // char array_string[64]                        = {0};
 
     if (timestamp == NULL) {
         ESP_LOGE(TAG, "Timestamp is NULL");
@@ -142,20 +142,20 @@ static esp_err_t mqtt_publish_temperature_response(const mqtt_topic_st* mqtt_top
         return ESP_ERR_NOT_FOUND;
     }
 
-    size_t array_size = snprintf_array(array_string,
-                                       (uint8_t*)temperature_response.temperature_array,
-                                       sizeof(temperature_response.temperature_array),
-                                       sizeof(array_string));
-    if (array_size >= sizeof(array_string)) {
-        ESP_LOGW(TAG, "Failed to format array");
-        return ESP_ERR_INVALID_SIZE;
-    }
+    // size_t array_size = snprintf_array(array_string,
+    //                                    &temperature_response.temperature_array,
+    //                                    sizeof(temperature_response.temperature_array),
+    //                                    sizeof(array_string));
+    // if (array_size >= sizeof(array_string)) {
+    //     ESP_LOGW(TAG, "Failed to format array");
+    //     return ESP_ERR_INVALID_SIZE;
+    // }
 
     size_t message_size = snprintf(message_buffer,
                                    message_buffer_out_len,
-                                   "{\"timestamp\": \"%s\", \"temperature_array\": %s, \"internal_temperature\": %d, \"humidity\": %d}",
+                                   "{\"timestamp\": \"%s\", \"temperature_array\": %f, \"internal_temperature\": %d, \"humidity\": %d}",
                                    timestamp,
-                                   array_string,
+                                   temperature_response.temperature_array,
                                    temperature_response.internal_temperature,
                                    temperature_response.humidity);
 
@@ -258,9 +258,9 @@ static void mqtt_subscribe_topic_callback(const char* topic, const char* event_d
 
         switch (global_config->mqtt_topics[i].data_info.type) {
             case DATA_STRUCT_TEMPERATURE_CONFIG:
-                temperature_config_st command_write = {0};
+                temperature_config_st temperature_config = {0};
 
-                parse_result = parse_json_temperature_config(event_data, event_data_len, &command_write);
+                parse_result = parse_json_temperature_config(event_data, event_data_len, &temperature_config);
                 if (parse_result != ESP_OK) {
                     ESP_LOGW(TAG,
                              "Failed to parse %s data - Error %d",
@@ -270,12 +270,33 @@ static void mqtt_subscribe_topic_callback(const char* topic, const char* event_d
                 }
 
                 result = xQueueSend(global_config->mqtt_topics[DATA_STRUCT_TEMPERATURE_CONFIG].queue,
-                                    &command_write,
+                                    &temperature_config,
                                     pdMS_TO_TICKS(100));
                 if (result != pdPASS) {
                     ESP_LOGW(TAG,
                              "Failed to send %s data to queue",
                              global_config->mqtt_topics[DATA_STRUCT_TEMPERATURE_CONFIG].topic);
+                }
+                break;
+            case DATA_STRUCT_TEMPERATURE_CALIBRATION:
+                temperature_calibration_st temperature_calibration = {0};
+
+                parse_result = parse_json_temperature_calibration(event_data, event_data_len, &temperature_calibration);
+                if (parse_result != ESP_OK) {
+                    ESP_LOGW(TAG,
+                             "Failed to parse %s data - Error %d",
+                             global_config->mqtt_topics[DATA_STRUCT_TEMPERATURE_CALIBRATION].topic,
+                             parse_result);
+                    break;
+                }
+
+                result = xQueueSend(global_config->mqtt_topics[DATA_STRUCT_TEMPERATURE_CALIBRATION].queue,
+                                    &temperature_calibration,
+                                    pdMS_TO_TICKS(100));
+                if (result != pdPASS) {
+                    ESP_LOGW(TAG,
+                             "Failed to send %s data to queue",
+                             global_config->mqtt_topics[DATA_STRUCT_TEMPERATURE_CALIBRATION].topic);
                 }
                 break;
             default:

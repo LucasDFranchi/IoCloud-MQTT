@@ -108,7 +108,7 @@ esp_err_t get_timestamp_in_iso_format(char* buffer, size_t buffer_size) {
  *     printf("Error: Not enough space in the buffer.\n");
  * }
  */
-size_t snprintf_array(char* buffer, uint8_t* arr, uint32_t arr_size, uint32_t max_size) {
+size_t snprintf_array(char* buffer, int* arr, uint32_t arr_size, uint32_t max_size) {
     size_t offset = 0;
 
     if ((buffer == NULL) || (arr == NULL) || (max_size == 0)) {

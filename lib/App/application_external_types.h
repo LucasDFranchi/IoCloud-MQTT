@@ -14,10 +14,9 @@
  * modules.
  */
 
- #define MAX_TEMPERATURE_ARRAY_SIZE (4)
-
 typedef enum data_struct_types_e {
     DATA_STRUCT_TEMPERATURE_CONFIG = 0,
+    DATA_STRUCT_TEMPERATURE_CALIBRATION,
     DATA_STRUCT_TEMPERATURE_RESPONSE,
     END_OF_DATA_STRUCT_TYPES,
 } data_struct_types_et;
@@ -31,8 +30,13 @@ typedef struct temperature_config_s {
     uint32_t time_interval;
 } temperature_config_st;
 
+typedef struct temperature_calibration_s {
+    uint32_t gain;
+    uint32_t offset;
+} temperature_calibration_st;
+
 typedef struct temperature_response_s {
-    uint16_t temperature_array[MAX_TEMPERATURE_ARRAY_SIZE];
+    float temperature_array;
     uint16_t internal_temperature;
     uint16_t humidity;
 } temperature_response_st;

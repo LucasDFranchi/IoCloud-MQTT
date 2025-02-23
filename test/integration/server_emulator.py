@@ -101,7 +101,7 @@ class ServerEmulator:
 def main():
 
     server_emulator = ServerEmulator(
-        "mqtt.eclipseprojects.io", 1883, "server_emulator", "CCDBA72F0080"
+        "mqtt.eclipseprojects.io", 1883, "server_emulator", "1C692031BE04"
     )
 
     server_emulator.connect()

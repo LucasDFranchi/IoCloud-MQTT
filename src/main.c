@@ -28,14 +28,21 @@ void app_main() {
         .size      = sizeof(temperature_config_st),
         .direction = SUBSCRIBE,
     };
-    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "tag/temperature/config", &temperature_config_info));
+    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "temperature/config", &temperature_config_info));
+
+    data_info_st temperature_cal_info = {
+        .type      = DATA_STRUCT_TEMPERATURE_CALIBRATION,
+        .size      = sizeof(temperature_cal_info),
+        .direction = SUBSCRIBE,
+    };
+    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "temperature/cal", &temperature_cal_info));
 
     data_info_st temperature_response_info = {
         .type      = DATA_STRUCT_TEMPERATURE_RESPONSE,
         .size      = sizeof(temperature_response_st),
         .direction = PUBLISH,
     };
-    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "tag/temperature/response", &temperature_response_info));
+    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "temperature/response", &temperature_response_info));
 
     xTaskCreate(
         network_task_execute,

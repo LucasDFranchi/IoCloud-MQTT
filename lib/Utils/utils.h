@@ -75,6 +75,6 @@ void get_unique_id(char *unique_id, size_t max_len);
  *     printf("Error: Not enough space in the buffer.\n");
  * }
  */
-size_t snprintf_array(char* buffer, uint8_t* arr, uint32_t arr_size, uint32_t max_size);
+size_t snprintf_array(char* buffer, int* arr, uint32_t arr_size, uint32_t max_size);
 
 #endif  // UTILS_H
