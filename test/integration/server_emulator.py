@@ -5,7 +5,7 @@ import time
 
 
 class ServerEmulator:
-    def __init__(self, broker, port, client_id, unique_device: str, tag_memory: list):
+    def __init__(self, broker, port, client_id, unique_device: str):
         """
         Initializes the ServerEmulator, which sets up the MQTT client to interact with
         the specified MifareClassic1K tag.
@@ -15,21 +15,16 @@ class ServerEmulator:
             port (int): The port to connect to on the MQTT broker (e.g., 1883).
             client_id (str): A unique client identifier for the MQTT client.
             unique_device (str): A unique ID used to identify the device.
-            tag_memory (str): Two dimensional list that represents a raw tag.
         """
         self._client = mqtt.Client(client_id)
         self._broker = broker
         self._port = port
         self._unique_device = unique_device
-        self._tag_memory = tag_memory
-        self._expected_tag_memory = tag_memory.copy()
         self._publish_topic_list = [
-            f"/titanium/{self._unique_device}/tag/command/config",
-            f"/titanium/{self._unique_device}/tag/command/write",
+            f"/titanium/{self._unique_device}/temperature/config",
         ]
         self._subscribe_topic_list = [
-            f"/titanium/{self._unique_device}/tag/response/read",
-            f"/titanium/{self._unique_device}/tag/response/write",
+            f"/titanium/{self._unique_device}/temperature/response",
         ]
 
         self._client.on_connect = self._on_connect
@@ -58,52 +53,28 @@ class ServerEmulator:
             userdata (any): User data passed to the callback (unused).
             msg (mqtt.MQTTMessage): The MQTT message received, containing the topic and payload.
         """
-        topic = msg.topic
-        payload = msg.payload.decode()
+        try:
+            topic = msg.topic
+            payload = msg.payload.decode()
 
-        if topic == f"/titanium/{self._unique_device}/tag/response/read":
-            response_read = json.loads(payload)
-            self._wait = False
-            self._received_data = response_read.get("data")
-            print(f"Received: {response_read} from topic: {topic}")
-            self._tag_memory[response_read.get("sector")][
-                response_read.get("block")
-            ] = self._received_data
+            if topic == f"/titanium/{self._unique_device}/temperature/response":
+                response_read = json.loads(payload)
+                self._received_data = response_read.get("data")
+                print(f"Received: {response_read} from topic: {topic}")
+        except Exception as e:
+            print(f"An error occurred   {e}")
 
-        elif topic == f"/titanium/{self._unique_device}/tag/response/write":
-            command_write = json.loads(payload)
-            print(f"Received: {command_write} from topic: {topic}")
-
-    def publish_config_message(self, sector: int, block: int):
+    def publish_config_message(self, time_interval: int):
         """
         Simulates publishing a configuration message to the MQTT broker. This method
         sends the block and sector configuration for the MifareClassic1K tag.
 
         Args:
-            sector (int): The sector to configure.
-            block (int): The block within the sector to configure.
+            time_interval (int): The time interval that should transmit the data.
         """
-        topic = f"/titanium/{self._unique_device}/tag/command/config"
-        command_config_json = {"block": block, "sector": sector}
-        payload = json.dumps(command_config_json)
-        self._client.publish(topic, payload)
-        self._wait = True
-        print(f"Published: {payload} to topic: {topic}")
-
-    def publish_write_message(self, sector: int, block: int, data: list):
-        """
-        Simulates publishing a write message to the MQTT broker. This method sends
-        the block, sector, and data to be written to the MifareClassic1K tag.
-
-        Args:
-            sector (int): The sector to write to.
-            block (int): The block within the sector to write to.
-            data (list): A list of data to be written to the block.
-        """
-        topic = f"/titanium/{self._unique_device}/tag/command/write"
-        command_write_json = {"block": block, "sector": sector, "data": data}
-        self._expected_tag_memory[sector][block] = data
-        payload = json.dumps(command_write_json)
+        topic = f"/titanium/{self._unique_device}/temperature/config"
+        temperature_config_json = {"time_interval": time_interval}
+        payload = json.dumps(temperature_config_json)
         self._client.publish(topic, payload)
         print(f"Published: {payload} to topic: {topic}")
 
@@ -127,54 +98,22 @@ class ServerEmulator:
         self._client.loop_stop()
         self._client.disconnect()
 
-    def server_wait_on_receive(self):
-        """
-        Waits for a response to be received from the server. This method pauses
-        execution until a response is received (via MQTT) to proceed.
-
-        This method is typically used after publishing a configuration or write
-        message to ensure the server has time to respond.
-        """
-        while self._wait:
-            time.sleep(1)
-
-
 def main():
-    _NUM_OF_SECTORS = 16
-    _NUM_OF_DATA_BLOCKS = 3
-    _NUM_OF_BLOCKS = 4
-    _BLOCK_SIZE = 16
-
-    tag_memory = [[0] * _NUM_OF_BLOCKS for _ in range(_NUM_OF_SECTORS)]
 
     server_emulator = ServerEmulator(
-        "mqtt.eclipseprojects.io", 1883, "server_emulator", "CCDBA72F0080", tag_memory
+        "mqtt.eclipseprojects.io", 1883, "server_emulator", "CCDBA72F0080"
     )
 
     server_emulator.connect()
 
     try:
-        # while True:
-        for sector in range(1, _NUM_OF_SECTORS):
-            for block in range(_NUM_OF_DATA_BLOCKS):
-                server_emulator.publish_config_message(sector, block)
-                server_emulator.publish_write_message(
-                    sector,
-                    block,
-                    [random.randint(0, 255) for _ in range(_BLOCK_SIZE)],
-                )
-                time.sleep(5)
-                server_emulator.server_wait_on_receive()
+        server_emulator.publish_config_message(random.randint(1, 10) * 1000)
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         print("Disconnected from broker.")
     finally:
         server_emulator.disconnect()
-
-    for sector in range(_NUM_OF_SECTORS):
-        for block in range(_NUM_OF_BLOCKS):
-            assert server_emulator._expected_tag_memory[sector][block] == server_emulator._tag_memory[sector][block]
-            
-
 
 if __name__ == "__main__":
     main()
