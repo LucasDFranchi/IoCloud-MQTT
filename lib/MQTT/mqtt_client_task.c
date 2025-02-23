@@ -118,139 +118,53 @@ static void stop_mqtt_client(void) {
     }
 }
 
-static esp_err_t mqtt_publish_response_read(const mqtt_topic_st* mqtt_topic,
-                                            const char* timestamp,
-                                            size_t message_buffer_out_len,
-                                            char* message_buffer) {
-    char array_string[256]         = {0};
-    char uuid_string[16]           = {0};
-    response_read_st response_read = {0};
-    esp_err_t result               = ESP_FAIL;
+static esp_err_t mqtt_publish_temperature_response(const mqtt_topic_st* mqtt_topic,
+                                                   const char* timestamp,
+                                                   size_t message_buffer_out_len,
+                                                   char* message_buffer) {
+    temperature_response_st temperature_response = {0};
+    char array_string[64]                        = {0};
 
-    do {
-        if (timestamp == NULL) {
-            ESP_LOGE(TAG, "Timestamp is NULL");
-            result = ESP_ERR_INVALID_ARG;
-            break;
-        }
-        if (message_buffer == NULL) {
-            ESP_LOGE(TAG, "Message buffer is NULL");
-            result = ESP_ERR_INVALID_ARG;
-            break;
-        }
-        if (mqtt_topic == NULL) {
-            ESP_LOGE(TAG, "MQTT topic is NULL");
-            result = ESP_ERR_INVALID_ARG;
-            break;
-        }
+    if (timestamp == NULL) {
+        ESP_LOGE(TAG, "Timestamp is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (message_buffer == NULL) {
+        ESP_LOGE(TAG, "Message buffer is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (mqtt_topic == NULL) {
+        ESP_LOGE(TAG, "MQTT topic is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
 
-        if (!xQueueReceive(global_config->mqtt_topics[DATA_STRUCT_RESPONSE_READ].queue, &response_read, pdMS_TO_TICKS(100))) {
-            result = ESP_ERR_NOT_FOUND;
-            break;
-        }
+    if (!xQueueReceive(global_config->mqtt_topics[DATA_STRUCT_TEMPERATURE_RESPONSE].queue, &temperature_response, pdMS_TO_TICKS(100))) {
+        return ESP_ERR_NOT_FOUND;
+    }
 
-        size_t uuid_size = snprintf(uuid_string,
-                                    sizeof(uuid_string),
-                                    "%" PRIu64,
-                                    response_read.uuid.integer);
-        if (uuid_size >= sizeof(uuid_string)) {
-            result = ESP_ERR_INVALID_SIZE;
-            ESP_LOGW(TAG, "Failed to format uuid");
-            break;
-        }
+    size_t array_size = snprintf_array(array_string,
+                                       (uint8_t*)temperature_response.temperature_array,
+                                       sizeof(temperature_response.temperature_array),
+                                       sizeof(array_string));
+    if (array_size >= sizeof(array_string)) {
+        ESP_LOGW(TAG, "Failed to format array");
+        return ESP_ERR_INVALID_SIZE;
+    }
 
-        size_t array_size = snprintf_array(array_string,
-                                           response_read.data,
-                                           sizeof(response_read.data),
-                                           sizeof(array_string));
-        if (array_size >= sizeof(array_string)) {
-            result = ESP_ERR_INVALID_SIZE;
-            ESP_LOGW(TAG, "Failed to format array");
-            break;
-        }
+    size_t message_size = snprintf(message_buffer,
+                                   message_buffer_out_len,
+                                   "{\"timestamp\": \"%s\", \"temperature_array\": %s, \"internal_temperature\": %d, \"humidity\": %d}",
+                                   timestamp,
+                                   array_string,
+                                   temperature_response.internal_temperature,
+                                   temperature_response.humidity);
 
-        size_t message_size = snprintf(message_buffer,
-                                       message_buffer_out_len,
-                                       "{\"timestamp\": \"%s\", \"uid\": %s, \"block\": %d, \"sector\": %d, \"data\": %s}",
-                                       timestamp,
-                                       uuid_string,
-                                       response_read.block,
-                                       response_read.sector,
-                                       array_string);
+    if ((message_size >= message_buffer_out_len) || (message_size == 0)) {
+        ESP_LOGW(TAG, "mqtt_publish_response_write - Failed to format message");
+        return ESP_ERR_NO_MEM;
+    }
 
-        if ((message_size >= message_buffer_out_len) || (message_size == 0)) {
-            result = ESP_ERR_NO_MEM;
-            ESP_LOGW(TAG, "mqtt_publish_response_read - Failed to format message");
-            break;
-        }
-
-        result = ESP_OK;
-
-    } while (0);
-
-    return result;
-}
-
-static esp_err_t mqtt_publish_response_write(const mqtt_topic_st* mqtt_topic,
-                                             const char* timestamp,
-                                             size_t message_buffer_out_len,
-                                             char* message_buffer) {
-    response_write_st response_write = {0};
-    char uuid_string[16]             = {0};
-    esp_err_t result                 = ESP_FAIL;
-
-    do {
-        if (timestamp == NULL) {
-            ESP_LOGE(TAG, "Timestamp is NULL");
-            result = ESP_ERR_INVALID_ARG;
-            break;
-        }
-        if (message_buffer == NULL) {
-            ESP_LOGE(TAG, "Message buffer is NULL");
-            result = ESP_ERR_INVALID_ARG;
-            break;
-        }
-        if (mqtt_topic == NULL) {
-            ESP_LOGE(TAG, "MQTT topic is NULL");
-            result = ESP_ERR_INVALID_ARG;
-            break;
-        }
-
-        if (!xQueueReceive(global_config->mqtt_topics[DATA_STRUCT_RESPONSE_WRITE].queue, &response_write, pdMS_TO_TICKS(100))) {
-            result = ESP_ERR_NOT_FOUND;
-            break;
-        }
-
-        size_t uuid_size = snprintf(uuid_string,
-                                    sizeof(uuid_string),
-                                    "%" PRIu64,
-                                    response_write.uuid.integer);
-        if (uuid_size >= sizeof(uuid_string)) {
-            result = ESP_ERR_INVALID_SIZE;
-            ESP_LOGW(TAG, "Failed to format uuid");
-            break;
-        }
-
-        size_t message_size = snprintf(message_buffer,
-                                       message_buffer_out_len,
-                                       "{\"timestamp\": \"%s\", \"uid\": %s, \"block\": %d, \"sector\": %d, \"status\": %d}",
-                                       timestamp,
-                                       uuid_string,
-                                       response_write.block,
-                                       response_write.sector,
-                                       response_write.status);
-
-        if ((message_size >= message_buffer_out_len) || (message_size == 0)) {
-            result = ESP_ERR_NO_MEM;
-            ESP_LOGW(TAG, "mqtt_publish_response_write - Failed to format message");
-            break;
-        }
-
-        result = ESP_OK;
-
-    } while (0);
-
-    return result;
+    return ESP_OK;
 }
 
 /**
@@ -272,11 +186,8 @@ static void mqtt_publish_topic(const mqtt_topic_st* mqtt_topic) {
         get_timestamp_in_iso_format(time_buffer, sizeof(time_buffer));
 
         switch (mqtt_topic->data_info.type) {
-            case DATA_STRUCT_RESPONSE_READ:
-                result = mqtt_publish_response_read(mqtt_topic, time_buffer, sizeof(message_buffer), message_buffer);
-                break;
-            case DATA_STRUCT_RESPONSE_WRITE:
-                result = mqtt_publish_response_write(mqtt_topic, time_buffer, sizeof(message_buffer), message_buffer);
+            case DATA_STRUCT_TEMPERATURE_RESPONSE:
+                result = mqtt_publish_temperature_response(mqtt_topic, time_buffer, sizeof(message_buffer), message_buffer);
                 break;
             default:
                 ESP_LOGE(TAG, "Invalid data type");
@@ -305,6 +216,24 @@ static void mqtt_publish_topic(const mqtt_topic_st* mqtt_topic) {
     } while (0);
 }
 
+/**
+ * @brief Formats a JSON response with temperature data for MQTT publishing.
+ *
+ * This function retrieves a `temperature_response_st` structure from the queue,
+ * formats the data into a JSON string, and stores it in the provided message buffer.
+ *
+ * @param mqtt_topic Pointer to the MQTT topic structure.
+ * @param timestamp  String containing the timestamp.
+ * @param message_buffer_out_len Length of the output message buffer.
+ * @param message_buffer Buffer to store the formatted JSON message.
+ *
+ * @return 
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_ARG if any input parameter is NULL.
+ *      - ESP_ERR_NOT_FOUND if no data is available in the queue.
+ *      - ESP_ERR_INVALID_SIZE if the formatted array string exceeds buffer size.
+ *      - ESP_ERR_NO_MEM if the final message exceeds the provided buffer length.
+ */
 static void mqtt_subscribe_topic_callback(const char* topic, const char* event_data, size_t event_data_len) {
     if ((topic == NULL) || (event_data == NULL) || (event_data_len == 0)) {
         ESP_LOGE(TAG, "Invalid arguments");
@@ -324,53 +253,31 @@ static void mqtt_subscribe_topic_callback(const char* topic, const char* event_d
             continue;
         }
 
-        BaseType_t result = pdFAIL;
+        BaseType_t result      = pdFAIL;
         esp_err_t parse_result = ESP_FAIL;
 
         switch (global_config->mqtt_topics[i].data_info.type) {
-            case DATA_STRUCT_COMMAND_WRITE:
-                command_write_st command_write = {0};
+            case DATA_STRUCT_TEMPERATURE_CONFIG:
+                temperature_config_st command_write = {0};
 
-                parse_result = parse_json_command_write(event_data, event_data_len, &command_write);
+                parse_result = parse_json_temperature_config(event_data, event_data_len, &command_write);
                 if (parse_result != ESP_OK) {
                     ESP_LOGW(TAG,
                              "Failed to parse %s data - Error %d",
-                             global_config->mqtt_topics[DATA_STRUCT_COMMAND_WRITE].topic,
+                             global_config->mqtt_topics[DATA_STRUCT_TEMPERATURE_CONFIG].topic,
                              parse_result);
                     break;
                 }
 
-                result = xQueueSend(global_config->mqtt_topics[DATA_STRUCT_COMMAND_WRITE].queue,
+                result = xQueueSend(global_config->mqtt_topics[DATA_STRUCT_TEMPERATURE_CONFIG].queue,
                                     &command_write,
                                     pdMS_TO_TICKS(100));
                 if (result != pdPASS) {
                     ESP_LOGW(TAG,
                              "Failed to send %s data to queue",
-                             global_config->mqtt_topics[DATA_STRUCT_COMMAND_WRITE].topic);
+                             global_config->mqtt_topics[DATA_STRUCT_TEMPERATURE_CONFIG].topic);
                 }
                 break;
-            case DATA_STRUCT_COMMAND_CONFIG:
-                command_config_st command_config = {0};
-
-                parse_result = parse_json_command_config(event_data, event_data_len, &command_config);
-                if (parse_result != ESP_OK) {
-                    ESP_LOGW(TAG,
-                             "Failed to parse %s data - Error %d",
-                             global_config->mqtt_topics[DATA_STRUCT_COMMAND_CONFIG].topic,
-                             parse_result);
-                    break;
-                }
-
-                result = xQueueSend(global_config->mqtt_topics[DATA_STRUCT_COMMAND_CONFIG].queue,
-                                    &command_config,
-                                    pdMS_TO_TICKS(100));
-                if (result != pdPASS) {
-                    ESP_LOGW(TAG,
-                             "Failed to send %s data to queue",
-                             global_config->mqtt_topics[DATA_STRUCT_COMMAND_CONFIG].topic);
-                }
-                break;
-
             default:
                 ESP_LOGE(TAG, "Invalid data type");
                 break;

@@ -47,7 +47,7 @@ static const char *TAG         = "Application Task";  ///< Tag used for logging.
                       pdMS_TO_TICKS(100));
 
     if (is_data_in_queue == pdTRUE) {
-        ESP_LOGI(TAG, "%s - New configuration received: Time Interval %d",
+        ESP_LOGI(TAG, "%s - New configuration received: Time Interval %ld",
                  __func__,
                  temperature_config->time_interval);
     }

@@ -62,7 +62,7 @@ static esp_err_t json_compare_key(const char *json, jsmntok_t *tok, const char *
  * such as invalid JSON format or buffer overflows.
  *
  * @param[in]  json_string   Pointer to the JSON string.
- * @param[out] command_write Pointer to the `command_write_st` structure where extracted values will be stored.
+ * @param[out] temperature_config Pointer to the 'temperature_config_st' structure where extracted values will be stored.
  *
  * @return
  * - ESP_OK              : If parsing is successful.
@@ -70,124 +70,36 @@ static esp_err_t json_compare_key(const char *json, jsmntok_t *tok, const char *
  * - ESP_ERR_INVALID_SIZE: If the data array is too large.
  * - ESP_FAIL            : If token parsing fails.
  */
-esp_err_t parse_json_command_write(const char *json_string, size_t size, command_write_st *command_write) {
-    esp_err_t result                 = ESP_OK;
-    char buffer[256]                 = {0};
-    const uint8_t BLOCK_TOKEN_INDEX  = 1;
-    const uint8_t SECTOR_TOKEN_INDEX = 3;
-    const uint8_t DATA_TOKEN_INDEX   = 5;
+esp_err_t parse_json_temperature_config(const char *json_string, size_t size, temperature_config_st *temperature_config) {
+    char buffer[256]                  = {0};
+    const uint8_t TIME_INTERVAL_INDEX = 1;
 
-    do {
-        if ((json_string == NULL) || (command_write == NULL)) {
-            result = ESP_ERR_INVALID_ARG;
-            break;
-        }
+    if ((json_string == NULL) || (temperature_config == NULL)) {
+        return ESP_ERR_INVALID_ARG;
+    }
 
-        if (size >= sizeof(buffer)) {
-            result = ESP_ERR_INVALID_SIZE;
-            break;
-        }
+    if (size >= sizeof(buffer)) {
+        return ESP_ERR_INVALID_SIZE;
+    }
 
-        memcpy(buffer, json_string, size);
-        buffer[size] = '\0';
+    memcpy(buffer, json_string, size);
+    buffer[size] = '\0';
 
-        jsmn_parser parser;
-        jsmntok_t tokens[MAX_TOKENS];
+    jsmn_parser parser;
+    jsmntok_t tokens[MAX_TOKENS];
 
-        jsmn_init(&parser);
-        int found_tokens = jsmn_parse(&parser, buffer, strlen(buffer), tokens, MAX_TOKENS);
+    jsmn_init(&parser);
+    int found_tokens = jsmn_parse(&parser, buffer, strlen(buffer), tokens, MAX_TOKENS);
 
-        if (found_tokens < 0) {
-            result = ESP_FAIL;
-            break;
-        }
+    if (found_tokens < 0) {
+        return ESP_FAIL;
+    }
 
-        if (json_compare_key(buffer, &tokens[BLOCK_TOKEN_INDEX], "block") == 0) {
-            command_write->block = atoi(buffer + tokens[BLOCK_TOKEN_INDEX + 1].start);
-        }
-        if (json_compare_key(buffer, &tokens[SECTOR_TOKEN_INDEX], "sector") == 0) {
-            command_write->sector = atoi(buffer + tokens[SECTOR_TOKEN_INDEX + 1].start);
-        }
-        if (json_compare_key(buffer, &tokens[DATA_TOKEN_INDEX], "data") == 0) {
-            uint8_t array_size = tokens[DATA_TOKEN_INDEX + 1].size;
-            if (array_size > sizeof(command_write->data)) {
-                result = ESP_ERR_INVALID_SIZE;
-                break;
-            }
-            if (tokens[DATA_TOKEN_INDEX + 1].type != JSMN_ARRAY) {
-                result = ESP_ERR_INVALID_ARG;
-                break;
-            }
-            for (uint8_t i = 0; i < array_size; i++) {
-                command_write->data[i] = atoi(buffer + tokens[DATA_TOKEN_INDEX + 2 + i].start);
-            }
-        }
-        if (result != ESP_OK) {
-            break;
-        }
-    } while (0);
+    if (json_compare_key(buffer, &tokens[TIME_INTERVAL_INDEX], "time_interval") == 0) {
+        temperature_config->time_interval = atoi(buffer + tokens[TIME_INTERVAL_INDEX + 1].start);
+    } else {
+        return ESP_ERR_NOT_FOUND;
+    }
 
-    return result;
-}
-
-/**
- * @brief Parses a JSON string to extract "block", "sector", and "mode" values for a config command.
- *
- * This function tokenizes a JSON string using `jsmn` and extracts the values for "block",
- * "sector", and "mode". The function ensures proper type validation.
- *
- * @param[in]  json_string    Pointer to the JSON string.
- * @param[out] command_config Pointer to the `command_config_st` structure where extracted values will be stored.
- *
- * @return
- * - ESP_OK              : If parsing is successful.
- * - ESP_ERR_INVALID_ARG : If input pointers are NULL or JSON structure is invalid.
- * - ESP_FAIL            : If token parsing fails.
- */
-esp_err_t parse_json_command_config(const char *json_string, size_t size, command_config_st *command_config) {
-    esp_err_t result                 = ESP_OK;
-    char buffer[256]                 = {0};
-    const uint8_t BLOCK_TOKEN_INDEX  = 1;
-    const uint8_t SECTOR_TOKEN_INDEX = 3;
-    const uint8_t MODE_TOKEN_INDEX   = 5;
-
-    do {
-        if ((json_string == NULL) || (command_config == NULL)) {
-            result = ESP_ERR_INVALID_ARG;
-            break;
-        }
-
-        if (size >= sizeof(buffer)) {
-            result = ESP_ERR_INVALID_SIZE;
-            break;
-        }
-
-        memcpy(buffer, json_string, size);
-        buffer[size] = '\0';
-
-        jsmn_parser parser;
-        jsmntok_t tokens[MAX_TOKENS];
-
-        jsmn_init(&parser);
-        int found_tokens = jsmn_parse(&parser, buffer, strlen(buffer), tokens, MAX_TOKENS);
-
-        if (found_tokens < 0) {
-            result = ESP_FAIL;
-            break;
-        }
-        if (json_compare_key(buffer, &tokens[BLOCK_TOKEN_INDEX], "block") == 0) {
-            command_config->block = atoi(buffer + tokens[BLOCK_TOKEN_INDEX + 1].start);
-        }
-        if (json_compare_key(buffer, &tokens[SECTOR_TOKEN_INDEX], "sector") == 0) {
-            command_config->sector = atoi(buffer + tokens[SECTOR_TOKEN_INDEX + 1].start);
-        }
-        if (json_compare_key(buffer, &tokens[MODE_TOKEN_INDEX], "mode") == 0) {
-            command_config->mode = atoi(buffer + tokens[MODE_TOKEN_INDEX + 1].start);
-        }
-        if (result != ESP_OK) {
-            break;
-        }
-    } while (0);
-
-    return result;
+    return ESP_OK;
 }
