@@ -23,7 +23,7 @@ static global_config_st* global_config      = NULL;         ///< Pointer to the 
 static bool is_mqtt_connected               = false;        ///< MQTT connection status.
 static esp_mqtt_client_handle_t mqtt_client = {0};          ///< MQTT client handle.
 static char unique_id[13]                   = {0};          ///< Device unique ID (12 chars + null terminator).
-uint8_t const MAX_QUEUE_SIZE                = 100;
+static const uint8_t MAX_QUEUE_SIZE         = 100;          ///< Maximum queue size for storing sensor data.
 
 static void mqtt_subscribe(void);
 static void mqtt_subscribe_topic_callback(const char* topic, const char* event_data, size_t event_data_len);
@@ -118,6 +118,24 @@ static void stop_mqtt_client(void) {
     }
 }
 
+/**
+ * @brief Publishes an MQTT response message for a read operation.
+ *
+ * This function retrieves a read response from the queue, formats it into a JSON message,
+ * and writes it into the provided buffer.
+ *
+ * @param[in] mqtt_topic Pointer to the MQTT topic structure.
+ * @param[in] timestamp Timestamp string for the message.
+ * @param[in] message_buffer_out_len Maximum size of the message buffer.
+ * @param[out] message_buffer Buffer to store the formatted message.
+ *
+ * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_ARG if any argument is NULL.
+ *      - ESP_ERR_NOT_FOUND if no message is available in the queue.
+ *      - ESP_ERR_INVALID_SIZE if formatting errors occur.
+ *      - ESP_ERR_NO_MEM if the message buffer is too small.
+ */
 static esp_err_t mqtt_publish_response_read(const mqtt_topic_st* mqtt_topic,
                                             const char* timestamp,
                                             size_t message_buffer_out_len,
@@ -191,6 +209,25 @@ static esp_err_t mqtt_publish_response_read(const mqtt_topic_st* mqtt_topic,
     return result;
 }
 
+
+/**
+ * @brief Publishes an MQTT response message for a write operation.
+ *
+ * This function retrieves a write response from the queue, formats it into a JSON message,
+ * and writes it into the provided buffer.
+ *
+ * @param[in] mqtt_topic Pointer to the MQTT topic structure.
+ * @param[in] timestamp Timestamp string for the message.
+ * @param[in] message_buffer_out_len Maximum size of the message buffer.
+ * @param[out] message_buffer Buffer to store the formatted message.
+ *
+ * @return
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_ARG if any argument is NULL.
+ *      - ESP_ERR_NOT_FOUND if no message is available in the queue.
+ *      - ESP_ERR_INVALID_SIZE if formatting errors occur.
+ *      - ESP_ERR_NO_MEM if the message buffer is too small.
+ */
 static esp_err_t mqtt_publish_response_write(const mqtt_topic_st* mqtt_topic,
                                              const char* timestamp,
                                              size_t message_buffer_out_len,
@@ -305,6 +342,17 @@ static void mqtt_publish_topic(const mqtt_topic_st* mqtt_topic) {
     } while (0);
 }
 
+/**
+ * @brief Callback function for handling subscribed MQTT topics.
+ *
+ * This function processes incoming MQTT messages by matching the topic with
+ * configured topics, parsing the payload based on the expected data structure,
+ * and placing the parsed data into the appropriate queue.
+ *
+ * @param topic The MQTT topic associated with the received message.
+ * @param event_data The raw JSON payload of the received message.
+ * @param event_data_len The length of the event_data string.
+ */
 static void mqtt_subscribe_topic_callback(const char* topic, const char* event_data, size_t event_data_len) {
     if ((topic == NULL) || (event_data == NULL) || (event_data_len == 0)) {
         logger_print(ERR, TAG, "Invalid arguments");
@@ -398,6 +446,17 @@ static void mqtt_publish(void) {
     }
 }
 
+/**
+ * @brief Callback function for handling subscribed MQTT topics.
+ *
+ * This function processes incoming MQTT messages by matching the topic with
+ * configured topics, parsing the payload based on the expected data structure,
+ * and placing the parsed data into the appropriate queue.
+ *
+ * @param topic The MQTT topic associated with the received message.
+ * @param event_data The raw JSON payload of the received message.
+ * @param event_data_len The length of the event_data string.
+ */
 static esp_err_t mqtt_subscribe_topic(mqtt_topic_st* mqtt_topic) {
     char channel[64]    = {0};
     esp_err_t result    = ESP_FAIL;
