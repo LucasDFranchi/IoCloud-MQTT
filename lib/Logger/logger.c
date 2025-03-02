@@ -159,7 +159,7 @@ static esp_err_t logger_send_message(const char* level, const char* tag, const c
         return ESP_ERR_INVALID_SIZE;
     }
 
-    if (!is_station_connected()) {
+    if (!is_station_connected() || !global_config->allow_external_logs) {
         return send_serial_packet(final_message);
     }
 

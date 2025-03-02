@@ -20,6 +20,7 @@ typedef struct global_config_s {
     EventGroupHandle_t firmware_event_group;              ///< Event group for signaling system status and events.
     mqtt_topic_st mqtt_topics[MQTT_MAXIMUM_TOPIC_COUNT];  ///< Array of MQTT topics and QoS levels.
     uint8_t initalized_mqtt_topics_count;                 ///< Number of initialized MQTT topics.
+    bool allow_external_logs;                             ///< Flag to allow external logs.
 } global_config_st;
 
 /**

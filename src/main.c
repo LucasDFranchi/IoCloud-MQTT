@@ -51,6 +51,8 @@ void app_main() {
     };
     ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "tag/response/write", &response_write_info));
 
+    global_config.allow_external_logs = true;
+
     logger_initialize(&global_config);
 
     xTaskCreate(
