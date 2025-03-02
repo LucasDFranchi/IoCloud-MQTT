@@ -26,7 +26,6 @@ static global_config_st* global_config = NULL;
 static SemaphoreHandle_t logger_mutex = NULL;   ///< Mutex used for ensuring thread safety during UDP packet send operations.
 static struct sockaddr_in dest_addr   = {0};    ///< Destination address structure for the UDP server.
 static int sock                       = -1;     ///< UDP socket descriptor used for sending data.
-static bool is_network_connected      = false;  ///< Flag indicating whether the network has been connected.
 
 /**
  * @brief Sends a UDP packet to the specified destination.

@@ -4,8 +4,6 @@
 #include "nvs_flash.h"
 #include "string.h"
 
-uint8_t const MAX_QUEUE_SIZE = 100;
-
 /*
  * @brief Initialize the Non-Volatile Storage (NVS) for the device.
  *
@@ -25,54 +23,6 @@ static esp_err_t initialize_nvs(void) {
         result = nvs_flash_init();
     }
     return result;
-}
-
-/**
- * @brief Initializes an MQTT topic with its associated parameters.
- *
- * This function sets up the MQTT topic, assigns a queue for storing sensor
- * data, and sets the Quality of Service (QoS) level. It ensures that the topic
- * string does not exceed the allocated buffer size and that the queue is successfully created.
- *
- * @param global_config Pointer to the global_config structure.
- * @param topic_name The name of the MQTT topic to be set.
- * @param qos The Quality of Service (QoS) level for the topic.
- * @param data_type The type of the data structure to be queued for the topic.
- *
- * @return ESP_OK if the initialization is successful. Otherwise, returns one of the following error codes:
- *         - ESP_ERR_INVALID_ARG if the topic name exceeds the buffer size.
- *         - ESP_ERR_NO_MEM if the queue cannot be created.
- */
-esp_err_t mqtt_topic_initialize(global_config_st *global_config, const char *topic_name, data_info_st *data_type) {
-    if ((global_config == NULL) || (topic_name == NULL) || (data_type == NULL)) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    if (global_config->initalized_mqtt_topics_count >= MQTT_MAXIMUM_TOPIC_COUNT) {
-        return ESP_ERR_NO_MEM;
-    }
-
-    mqtt_topic_st *topic = &global_config->mqtt_topics[global_config->initalized_mqtt_topics_count++];
-
-    topic->data_info.direction = data_type->direction;
-    topic->data_info.size      = data_type->size;
-    topic->data_info.type      = data_type->type;
-
-    size_t topic_length = snprintf(topic->topic, sizeof(topic->topic), "%s", topic_name);
-    if (topic_length >= sizeof(topic->topic)) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    topic->queue = xQueueCreate(MAX_QUEUE_SIZE, data_type->size);
-    if (topic->queue == NULL) {
-        return ESP_ERR_NO_MEM;
-    }
-
-    topic->qos = 1;
-
-    topic->is_initialized = true;
-
-    return ESP_OK;
 }
 
 /**
