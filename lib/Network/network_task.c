@@ -271,7 +271,7 @@ void network_task_execute(void *pvParameters) {
         vTaskDelete(NULL);
     }
 
-    network_set_credentials("LucasWiFi", "gvt88888");
+    network_set_credentials("NETPARQUE_PAOLA", "NPQ196253");
 
     while (1) {
         do {

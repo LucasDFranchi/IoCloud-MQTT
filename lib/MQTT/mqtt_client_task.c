@@ -153,11 +153,9 @@ static esp_err_t mqtt_publish_temperature_response(const mqtt_topic_st* mqtt_top
 
     size_t message_size = snprintf(message_buffer,
                                    message_buffer_out_len,
-                                   "{\"timestamp\": \"%s\", \"temperature_array\": %f, \"internal_temperature\": %d, \"humidity\": %d}",
-                                   timestamp,
+                                   "{\"value\": %f, \"timestamp\": \"%s\"}",
                                    temperature_response.temperature_array,
-                                   temperature_response.internal_temperature,
-                                   temperature_response.humidity);
+                                   timestamp);
 
     if ((message_size >= message_buffer_out_len) || (message_size == 0)) {
         ESP_LOGW(TAG, "mqtt_publish_response_write - Failed to format message");
