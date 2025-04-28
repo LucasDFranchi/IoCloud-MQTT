@@ -6,6 +6,8 @@
 #include "sntp_task.h"
 #include "watchdog_task.h"
 
+#include "modbus_task.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -90,5 +92,13 @@ void app_main() {
         WATCHDOG_TASK_STACK_SIZE,
         NULL,
         WATCHDOG_TASK_PRIORITY,
+        NULL);
+
+        xTaskCreate(
+        modbus_task_execute,
+        MODBUS_TASK_NAME,
+        MODBUS_TASK_STACK_SIZE,
+        NULL,
+        MODBUS_TASK_PRIORITY,
         NULL);
 }

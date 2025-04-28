@@ -61,4 +61,10 @@
 #define WATCHDOG_TASK_NAME "Watchdog Task"
 #define WATCHDOG_TASK_DELAY 5000  // Delay in milliseconds
 
+// Modbus Task configuration
+#define MODBUS_TASK_PRIORITY 6
+#define MODBUS_TASK_STACK_SIZE (2048 * 2)
+#define MODBUS_TASK_NAME "Modbus Task"
+#define MODBUS_TASK_DELAY 1000  // Delay in milliseconds
+
 #endif /* TASK_DEFINITION_H */

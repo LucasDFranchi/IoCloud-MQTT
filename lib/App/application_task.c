@@ -73,61 +73,24 @@ static global_config_st *global_config = NULL;  ///< Global configuration struct
 
 static const char *TAG = "Application Task";  ///< Tag used for logging.
 
-// /**
-//  * @brief Attempts to fetch a new configuration from the queue.
-//  *
-//  * This function checks if there is a new configuration available in the
-//  * queue and retrieves it if present.
-//  *
-//  * @param command_config Pointer to store the fetched configuration.
-//  * @return true if a new configuration was retrieved, false otherwise.
-//  */
-// static void try_fetch_new_config(temperature_config_st *temperature_config) {
-//     if (temperature_config == NULL) {
-//         return;
-//     }
+static esp_err_t send_data_modbus(float temperature) {
+    uint8_t tx_buffer[256] = {0};  // Buffer to hold data to be sent
+    extern QueueHandle_t uart_transmit_queue;  // Queue for UART transmission
 
-//     BaseType_t is_data_in_queue =
-//         xQueueReceive(global_config->mqtt_topics[DATA_STRUCT_TEMPERATURE_CONFIG].queue,
-//                       temperature_config,
-//                       pdMS_TO_TICKS(100));
+    int len = snprintf((char *)tx_buffer, sizeof(tx_buffer), "Temperature : %.2f ºC", temperature);
 
-//     if (is_data_in_queue == pdTRUE) {
-//         ESP_LOGI(TAG, "%s - New configuration received: Time Interval %ld",
-//                  __func__,
-//                  temperature_config->time_interval);
-//     }
-// }
+    if (len < 0 || len >= sizeof(tx_buffer)) {
+        ESP_LOGE(TAG, "Failed to format data for transmission");
+        return ESP_FAIL;
+    }
 
-// /**
-//  * @brief Attempts to fetch a new temperature calibration from the queue.
-//  *
-//  * This function checks if a new calibration configuration is available in
-//  * the queue and retrieves it if present. If no new calibration is found
-//  * within the specified timeout, the function returns without updating the
-//  * provided structure.
-//  *
-//  * @param[out] temperature_calibration Pointer to the structure where the
-//  *                retrieved calibration values (gain and offset) will be stored.
-//  *                Must not be NULL.
-//  */
-// static void try_fetch_new_calibration(temperature_calibration_st *temperature_calibration) {
-//     if (temperature_calibration == NULL) {
-//         return;
-//     }
+    if (xQueueSend(uart_transmit_queue, tx_buffer, portMAX_DELAY) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to send data to UART queue");
+        return ESP_FAIL;
+    }
 
-//     BaseType_t is_data_in_queue =
-//         xQueueReceive(global_config->mqtt_topics[DATA_STRUCT_TEMPERATURE_CALIBRATION].queue,
-//                       temperature_calibration,
-//                       pdMS_TO_TICKS(100));
-
-//     if (is_data_in_queue == pdTRUE) {
-//         ESP_LOGI(TAG, "%s - New calibration received: Gain %ld, Offset %ld",
-//                  __func__,
-//                  temperature_calibration->gain,
-//                  temperature_calibration->offset);
-//     }
-// }
+    return ESP_OK;
+}
 
 /**
  * @brief Initializes the application hardware and peripherals.
@@ -178,12 +141,6 @@ void application_task_execute(void *pvParameters) {
         // Request single ended on pin AIN0
         ADS1115_request_single_ended_AIN1();  // all functions except for get_conversion_X return 'esp_err_t' for logging
 
-        // // Check conversion state - returns true if conversion is complete
-        // while(!ADS1115_get_conversion_state()) {
-        //     vTaskDelay(pdMS_TO_TICKS(5));          // wait 5ms before check again
-        //     // ESP_LOGI(TAG,"");
-        // }
-
         // Return latest conversion value
         uint16_t raw_value = ADS1115_get_conversion();
         // float voltage = raw_value * (4.095 / 32768.0);  // Scale raw value to voltage
@@ -202,6 +159,8 @@ void application_task_execute(void *pvParameters) {
         // Convert Kelvin to Celsius
         float temperatureC = tempK - 273.15;
         ESP_LOGI(TAG, "Temperature Value: %0.2f", temperatureC);
+
+        send_data_modbus(temperatureC);
 
         temperature_response_st temperature_response = {
             .internal_temperature = 25,
