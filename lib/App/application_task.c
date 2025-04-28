@@ -1,6 +1,7 @@
 #include "application_task.h"
 #include "Driver/ADS1115.h"
 #include "Driver/max6675.h"
+#include "Driver/tca9548a.h"
 #include "application_external_types.h"
 #include "esp_err.h"
 #include "esp_log.h"
@@ -43,6 +44,12 @@ ads1115_t ads1115_cfg = {
                ADS1115_CFG_LS_DR_1600SPS |      // No. of samples to take
                ADS1115_CFG_MS_PGA_FSR_4_096V,   // Mode is set to single-shot
     .dev_addr = 0x48,
+};
+
+/* TCA9548A setup ------------------------------------- */
+static const tca9548a_t tca9548a_cfg = {
+    .port_num = I2C_NUM_0,
+    .dev_addr = 0x70,
 };
 
 /**
@@ -137,6 +144,8 @@ static esp_err_t application_task_initialize(void) {
     // Setup ADS1115
     ADS1115_initiate(&ads1115_cfg);
 
+    tca9548a_initialize(&tca9548a_cfg, GPIO_NUM_21, GPIO_NUM_22);
+
     return ESP_OK;
 }
 
@@ -163,6 +172,8 @@ void application_task_execute(void *pvParameters) {
         .time_interval = 5000,
     };
 
+    tca9548a_set_channel(&tca9548a_cfg, 2);  // Select channel 0 for the temperature sensor
+
     while (1) {
         // Request single ended on pin AIN0
         ADS1115_request_single_ended_AIN1();  // all functions except for get_conversion_X return 'esp_err_t' for logging
@@ -176,6 +187,7 @@ void application_task_execute(void *pvParameters) {
         // Return latest conversion value
         uint16_t raw_value = ADS1115_get_conversion();
         // float voltage = raw_value * (4.095 / 32768.0);  // Scale raw value to voltage
+        ESP_LOGI(TAG, "Raw Value: %d", raw_value);
 
         // Convert the raw ADC value to voltage
         float voltage = raw_value * (4.096 / 32768.0);  // Adjust based on your reference voltage
