@@ -142,7 +142,8 @@ void application_task_execute(void *pvParameters) {
         ADS1115_request_single_ended_AIN1();  // all functions except for get_conversion_X return 'esp_err_t' for logging
 
         // Return latest conversion value
-        uint16_t raw_value = ADS1115_get_conversion();
+        uint16_t raw_value = 0;
+        raw_value = ADS1115_get_conversion();
         // float voltage = raw_value * (4.095 / 32768.0);  // Scale raw value to voltage
         ESP_LOGI(TAG, "Raw Value: %d", raw_value);
 
@@ -180,6 +181,10 @@ void application_task_execute(void *pvParameters) {
                      global_config->mqtt_topics[DATA_STRUCT_TEMPERATURE_RESPONSE].topic);
         }
 
+        ADS1115_request_single_ended_AIN2();  // Request differential measurement on AIN2 and AIN3
+        raw_value = ADS1115_get_conversion();
+        voltage = raw_value * (4.095 / 32768.0);  // Scale raw value to voltage
+        ESP_LOGI(TAG, "Float Value: %f", voltage);
         vTaskDelay(pdMS_TO_TICKS(temperature_config.time_interval));
     }
 }
