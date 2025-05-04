@@ -54,9 +54,9 @@ esp_err_t mqtt_topic_initialize(global_config_st *global_config, const char *top
 
     mqtt_topic_st *topic = &global_config->mqtt_topics[global_config->initalized_mqtt_topics_count++];
 
-    topic->data_info.direction = data_type->direction;
-    topic->data_info.size      = data_type->size;
-    topic->data_info.type      = data_type->type;
+    topic->data_info.direction  = data_type->direction;
+    topic->data_info.size       = data_type->size;
+    topic->data_info.type       = data_type->type;
 
     size_t topic_length = snprintf(topic->topic, sizeof(topic->topic), "%s", topic_name);
     if (topic_length >= sizeof(topic->topic)) {

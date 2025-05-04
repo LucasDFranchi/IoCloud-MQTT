@@ -25,26 +25,13 @@ static global_config_st global_config = {0};
 void app_main() {
     ESP_ERROR_CHECK(global_config_initialize(&global_config));
 
-    data_info_st temperature_config_info = {
-        .type      = DATA_STRUCT_TEMPERATURE_CONFIG,
-        .size      = sizeof(temperature_config_st),
-        .direction = SUBSCRIBE,
-    };
-    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "temperature/config", &temperature_config_info));
 
-    data_info_st temperature_cal_info = {
-        .type      = DATA_STRUCT_TEMPERATURE_CALIBRATION,
-        .size      = sizeof(temperature_cal_info),
-        .direction = SUBSCRIBE,
+    data_info_st sensor_read_info = {
+        .type       = DATA_STRUCT_SENSOR_READ,
+        .size       = sizeof(sensor_response_st),
+        .direction  = PUBLISH,
     };
-    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "temperature/cal", &temperature_cal_info));
-
-    data_info_st temperature_response_info = {
-        .type      = DATA_STRUCT_TEMPERATURE_RESPONSE,
-        .size      = sizeof(temperature_response_st),
-        .direction = PUBLISH,
-    };
-    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "temperature/response", &temperature_response_info));
+    ESP_ERROR_CHECK(mqtt_topic_initialize(&global_config, "sensor/read", &sensor_read_info));
 
     xTaskCreate(
         network_task_execute,
@@ -94,7 +81,7 @@ void app_main() {
         WATCHDOG_TASK_PRIORITY,
         NULL);
 
-        xTaskCreate(
+    xTaskCreate(
         modbus_task_execute,
         MODBUS_TASK_NAME,
         MODBUS_TASK_STACK_SIZE,

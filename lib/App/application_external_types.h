@@ -1,6 +1,7 @@
 #ifndef APPLICATION_EXTERNAL_TYPES_H
 #define APPLICATION_EXTERNAL_TYPES_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 /**
@@ -14,10 +15,10 @@
  * modules.
  */
 
+#define NUM_OF_CHANNELS (2) /*!< Number of channels for the TCA9548A multiplexer */
+
 typedef enum data_struct_types_e {
-    DATA_STRUCT_TEMPERATURE_CONFIG = 0,
-    DATA_STRUCT_TEMPERATURE_CALIBRATION,
-    DATA_STRUCT_TEMPERATURE_RESPONSE,
+    DATA_STRUCT_SENSOR_READ = 0,
     END_OF_DATA_STRUCT_TYPES,
 } data_struct_types_et;
 
@@ -26,20 +27,19 @@ typedef enum data_direction_s {
     SUBSCRIBE,
 } data_direction_st;
 
-typedef struct temperature_config_s {
-    uint32_t time_interval;
-} temperature_config_st;
 
-typedef struct temperature_calibration_s {
-    uint32_t gain;
-    uint32_t offset;
-} temperature_calibration_st;
+typedef enum sensor_type_e {
+    SENSOR_TYPE_TEMPERATURE = 0,
+    SENSOR_TYPE_HART,
+} sensor_type_et;
 
-typedef struct temperature_response_s {
-    float temperature_array;
-    uint16_t internal_temperature;
-    uint16_t humidity;
-} temperature_response_st;
+typedef struct sensor_response_s {
+    struct sensor_array_s {
+        sensor_type_et type;         /*!< Type of sensor */
+        int raw_value;               /*!< Raw value from the sensor */
+    } sensor_array[NUM_OF_CHANNELS]; /*!< Array of sensor values */
+    int num_of_active_sensors;       /*!< Number of sensors in the array */
+} sensor_response_st;
 
 typedef struct data_info_s {
     data_struct_types_et type;

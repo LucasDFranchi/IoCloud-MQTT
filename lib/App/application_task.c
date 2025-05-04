@@ -23,32 +23,49 @@
 #define I2C_TX_BUF_STATE TX_BUF_DISABLE /*!< I2C set tx buffer status */
 #define I2C_INTR_ALOC_FLAG (0)          /*!< I2C set interrupt allocation flag */
 
-/* i2c setup ----------------------------------------- */
-// Config profile for espressif I2C lib
-i2c_config_t i2c_cfg = {
-    .mode             = I2C_MODE_MASTER,
-    .sda_io_num       = SDA_IO,
-    .scl_io_num       = SCL_IO,
-    .sda_pullup_en    = GPIO_PULLUP_DISABLE,
-    .scl_pullup_en    = GPIO_PULLUP_DISABLE,
-    .master.clk_speed = FREQ_HZ,
+typedef enum sensor_channel_e {
+    MUX_CHANNEL_0 = 0,
+    MUX_CHANNEL_1,
+    MUX_CHANNEL_2,
+    MUX_CHANNEL_3,
+    MUX_CHANNEL_4,
+    MUX_CHANNEL_5,
+    MUX_CHANNEL_6,
+    MUX_CHANNEL_7,
+} mux_channel_et;
+
+typedef enum adc_configuration_e {
+    ADC_CONFIG_SINGLE_ENDED_A0 = 0,
+    ADC_CONFIG_SINGLE_ENDED_A1,
+    ADC_CONFIG_SINGLE_ENDED_A2,
+    ADC_CONFIG_SINGLE_ENDED_A3,
+    ADC_CONFIG_DIFF_A0_A1,
+    ADC_CONFIG_DIFF_A0_A2,
+    ADC_CONFIG_DIFF_A0_A3,
+    ADC_CONFIG_DIFF_A1_A2,
+    ADC_CONFIG_DIFF_A1_A3,
+    ADC_CONFIG_DIFF_A2_A3,
+} adc_configuration_et;
+
+typedef struct sensor_info_s {
+    sensor_type_et type;             /*!< Type of sensor */
+    mux_channel_et channel;          /*!< Channel number for the sensor */
+    adc_configuration_et adc_config; /*!< ADC configuration type */
+} sensor_info_st;
+
+static const sensor_info_st sensor_info[NUM_OF_CHANNELS] = {
+    {SENSOR_TYPE_TEMPERATURE, MUX_CHANNEL_2, ADC_CONFIG_SINGLE_ENDED_A1},  // Channel 0 for temperature sensor
+    {SENSOR_TYPE_HART, MUX_CHANNEL_2, ADC_CONFIG_DIFF_A2_A3},              // Channel 1 for HART sensor
 };
 
-/* ADS1115 setup ------------------------------------- */
-// Below uses the default values speficied by the datasheet
-ads1115_t ads1115_cfg = {
-    .reg_cfg = ADS1115_CFG_LS_COMP_MODE_TRAD |  // Comparator is traditional
-               ADS1115_CFG_LS_COMP_LAT_NON |    // Comparator is non-latching
-               ADS1115_CFG_LS_COMP_POL_LOW |    // Alert is active low
-               ADS1115_CFG_LS_COMP_QUE_DIS |    // Compator is disabled
-               ADS1115_CFG_LS_DR_1600SPS |      // No. of samples to take
-               ADS1115_CFG_MS_PGA_FSR_4_096V,   // Mode is set to single-shot
-    .dev_addr = 0x48,
+sensor_response_st sensor_response = {0};  ///< Sensor response structure to hold sensor data.
+
+ads1115_config_st ads1115_config = {
+    .dev_addr      = 0x48,
+    .reg_cfg.value = 0,
 };
 
-/* TCA9548A setup ------------------------------------- */
-static const tca9548a_t tca9548a_cfg = {
-    .port_num = I2C_NUM_0,
+tca9548a_config_st tca9548a_cfg = {
     .dev_addr = 0x70,
 };
 
@@ -73,24 +90,24 @@ static global_config_st *global_config = NULL;  ///< Global configuration struct
 
 static const char *TAG = "Application Task";  ///< Tag used for logging.
 
-static esp_err_t send_data_modbus(float temperature) {
-    uint8_t tx_buffer[256] = {0};  // Buffer to hold data to be sent
-    extern QueueHandle_t uart_transmit_queue;  // Queue for UART transmission
+// static esp_err_t send_data_modbus(float temperature) {
+//     uint8_t tx_buffer[256] = {0};              // Buffer to hold data to be sent
+//     extern QueueHandle_t uart_transmit_queue;  // Queue for UART transmission
 
-    int len = snprintf((char *)tx_buffer, sizeof(tx_buffer), "Temperature : %.2f ºC", temperature);
+//     int len = snprintf((char *)tx_buffer, sizeof(tx_buffer), "Temperature : %.2f ºC", temperature);
 
-    if (len < 0 || len >= sizeof(tx_buffer)) {
-        ESP_LOGE(TAG, "Failed to format data for transmission");
-        return ESP_FAIL;
-    }
+//     if (len < 0 || len >= sizeof(tx_buffer)) {
+//         ESP_LOGE(TAG, "Failed to format data for transmission");
+//         return ESP_FAIL;
+//     }
 
-    if (xQueueSend(uart_transmit_queue, tx_buffer, portMAX_DELAY) != pdPASS) {
-        ESP_LOGE(TAG, "Failed to send data to UART queue");
-        return ESP_FAIL;
-    }
+//     if (xQueueSend(uart_transmit_queue, tx_buffer, portMAX_DELAY) != pdPASS) {
+//         ESP_LOGE(TAG, "Failed to send data to UART queue");
+//         return ESP_FAIL;
+//     }
 
-    return ESP_OK;
-}
+//     return ESP_OK;
+// }
 
 /**
  * @brief Initializes the application hardware and peripherals.
@@ -101,21 +118,33 @@ static esp_err_t send_data_modbus(float temperature) {
  * @return ESP_OK on success, ESP_FAIL on failure.
  */
 static esp_err_t application_task_initialize(void) {
+    i2c_config_t i2c_cfg = {
+        .mode             = I2C_MODE_MASTER,
+        .sda_io_num       = SDA_IO,
+        .scl_io_num       = SCL_IO,
+        .sda_pullup_en    = GPIO_PULLUP_DISABLE,
+        .scl_pullup_en    = GPIO_PULLUP_DISABLE,
+        .master.clk_speed = FREQ_HZ,
+    };
+
     i2c_param_config(I2C_NUM, &i2c_cfg);
     i2c_driver_install(I2C_NUM, I2C_MODE, I2C_RX_BUF_STATE, I2C_TX_BUF_STATE, I2C_INTR_ALOC_FLAG);
 
-    // Setup ADS1115
-    ADS1115_initiate(&ads1115_cfg);
+    ads1115_config.reg_cfg.bits.comp_que  = COMP_QUE_DISABLE;
+    ads1115_config.reg_cfg.bits.comp_lat  = COMP_LAT_NON_LATCHING;
+    ads1115_config.reg_cfg.bits.comp_pol  = COMP_POL_ACTIVE_LOW;
+    ads1115_config.reg_cfg.bits.comp_mode = COMP_MODE_TRADITIONAL;
+    ads1115_config.reg_cfg.bits.dr        = DR_128SPS;
+    ads1115_config.reg_cfg.bits.mode      = MODE_SINGLESHOT;
+    ads1115_config.reg_cfg.bits.pga       = PGA_4_096V;
+    ads1115_config.reg_cfg.bits.mux       = MUX_AIN0_AIN1;
+    ads1115_config.reg_cfg.bits.os        = OS_NO_EFFECT;
+    ADS1115_initialize(&ads1115_config);
 
-    tca9548a_initialize(&tca9548a_cfg, GPIO_NUM_21, GPIO_NUM_22);
+    tca9548a_initialize(&tca9548a_cfg);
 
     return ESP_OK;
 }
-
-#define R0 10000    // Reference resistance at 25°C (in ohms)
-#define BETA 3950   // Beta value (in Kelvin)
-#define T0 298.15   // 25°C in Kelvin (273.15 + 25)
-#define RREF 10000  // Reference resistor value (in ohms)
 
 /**
  * @brief Main application task loop.
@@ -131,60 +160,83 @@ void application_task_execute(void *pvParameters) {
         ESP_LOGE(TAG, " %s - Failed to initialize application task", __func__);
         vTaskDelete(NULL);
     }
-    temperature_config_st temperature_config = {
-        .time_interval = 5000,
-    };
 
-    tca9548a_set_channel(&tca9548a_cfg, 2);  // Select channel 0 for the temperature sensor
+    static mux_channel_et last_mux_channel = 0;  // Variable to keep track of the last selected channel
 
     while (1) {
-        // Request single ended on pin AIN0
-        ADS1115_request_single_ended_AIN1();  // all functions except for get_conversion_X return 'esp_err_t' for logging
+        for (int i = 0; i < NUM_OF_CHANNELS; i++) {
+            if (sensor_info[i].channel != last_mux_channel) {
+                tca9548a_set_channel(sensor_info[i].channel);
+                last_mux_channel = sensor_info[i].channel;
+                vTaskDelay(pdMS_TO_TICKS(10));  // Wait for the channel to stabilize
+                ESP_LOGI(TAG, "Switched to channel %d", sensor_info[i].channel);
+            }
 
-        // Return latest conversion value
-        uint16_t raw_value = 0;
-        raw_value = ADS1115_get_conversion();
-        // float voltage = raw_value * (4.095 / 32768.0);  // Scale raw value to voltage
-        ESP_LOGI(TAG, "Raw Value: %d", raw_value);
+            switch (sensor_info[i].adc_config) {
+                case ADC_CONFIG_SINGLE_ENDED_A0:
+                    ADS1115_set_mux(MUX_AIN0_GND);
+                    ADS1115_set_os(OS_START_SINGLE_CONV);
+                    ADS1115_update();
+                    // ESP_LOGI(TAG, "Requesting single-ended measurement on AIN0");
+                    break;
+                case ADC_CONFIG_SINGLE_ENDED_A1:
+                    ADS1115_set_mux(MUX_AIN1_GND);
+                    ADS1115_set_os(OS_START_SINGLE_CONV);
+                    ADS1115_update();
+                    // ESP_LOGI(TAG, "Requesting single-ended measurement on AIN1");
+                    break;
+                case ADC_CONFIG_SINGLE_ENDED_A2:
+                    ADS1115_set_mux(MUX_AIN2_GND);
+                    ADS1115_set_os(OS_START_SINGLE_CONV);
+                    ADS1115_update();
+                    // ESP_LOGI(TAG, "Requesting single-ended measurement on AIN2");
+                    break;
+                case ADC_CONFIG_SINGLE_ENDED_A3:
+                    ADS1115_set_mux(MUX_AIN3_GND);
+                    ADS1115_set_os(OS_START_SINGLE_CONV);
+                    ADS1115_update();
+                    // ESP_LOGI(TAG, "Requesting single-ended measurement on AIN3");
+                    break;
+                case ADC_CONFIG_DIFF_A0_A1:
+                    ADS1115_set_mux(MUX_AIN0_AIN1);
+                    ADS1115_set_os(OS_START_SINGLE_CONV);
+                    ADS1115_update();
+                    break;
+                case ADC_CONFIG_DIFF_A0_A3:
+                    ADS1115_set_mux(MUX_AIN0_AIN3);
+                    ADS1115_set_os(OS_START_SINGLE_CONV);
+                    ADS1115_update();
+                    break;
+                case ADC_CONFIG_DIFF_A2_A3:
+                    ADS1115_set_mux(MUX_AIN2_AIN3);
+                    ADS1115_set_os(OS_START_SINGLE_CONV);
+                    ADS1115_update();
+                    break;
+                default:
+                    ESP_LOGE(TAG, "Invalid ADC configuration for channel %d", sensor_info[i].channel);
+                    break;
+            }
 
-        // Convert the raw ADC value to voltage
-        float voltage = raw_value * (4.096 / 32768.0);  // Adjust based on your reference voltage
-        ESP_LOGI(TAG, "Conversion Value: %f", voltage);
+            while (ADS1115_get_conversion_state() == false) {
+                vTaskDelay(pdMS_TO_TICKS(100));  // Wait for the conversion to complete
+            }
 
-        // Convert the voltage to resistance using the voltage divider formula
-        float resistance = RREF * (voltage / (3.3 - voltage));  // Using 3.3V as the input voltage
+            uint16_t raw_value = ADS1115_get_raw_value();
+            ESP_LOGI(TAG, "Raw Value[%d]: %d", i, raw_value);
 
-        // Use the Beta equation to calculate temperature in Kelvin
-        float tempK = 1.0 / ((1.0 / T0) + (1.0 / BETA) * log(resistance / R0));
-
-        // Convert Kelvin to Celsius
-        float temperatureC = tempK - 273.15;
-        ESP_LOGI(TAG, "Temperature Value: %0.2f", temperatureC);
-
-        send_data_modbus(temperatureC);
-
-        temperature_response_st temperature_response = {
-            .internal_temperature = 25,
-            .humidity             = 50,
-            .temperature_array    = 0,
-        };
-
-        temperature_response.temperature_array = temperatureC;
-
-        BaseType_t queue_result = xQueueSend(global_config->mqtt_topics[DATA_STRUCT_TEMPERATURE_RESPONSE].queue,
-                                             &temperature_response,
+            sensor_response.sensor_array[i].type      = sensor_info[i].type;  // Set the sensor type
+            sensor_response.sensor_array[i].raw_value = raw_value;            // Set the raw value from the sensor
+            sensor_response.num_of_active_sensors     = (i + 1);              // Set the number of active sensors
+        }
+        BaseType_t queue_result = xQueueSend(global_config->mqtt_topics[DATA_STRUCT_SENSOR_READ].queue,
+                                             &sensor_response,
                                              pdMS_TO_TICKS(100));
 
         if (queue_result != pdPASS) {
             ESP_LOGW(TAG, " %s - Failed to send %s data to queue",
                      __func__,
-                     global_config->mqtt_topics[DATA_STRUCT_TEMPERATURE_RESPONSE].topic);
+                     global_config->mqtt_topics[DATA_STRUCT_SENSOR_READ].topic);
         }
-
-        ADS1115_request_single_ended_AIN2();  // Request differential measurement on AIN2 and AIN3
-        raw_value = ADS1115_get_conversion();
-        voltage = raw_value * (4.095 / 32768.0);  // Scale raw value to voltage
-        ESP_LOGI(TAG, "Float Value: %f", voltage);
-        vTaskDelay(pdMS_TO_TICKS(temperature_config.time_interval));
+        vTaskDelay(pdMS_TO_TICKS(1000));  // Wait for the specified time interval
     }
 }
