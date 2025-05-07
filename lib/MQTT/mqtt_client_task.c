@@ -145,8 +145,9 @@ static esp_err_t mqtt_publish_sensor_response(const mqtt_topic_st* mqtt_topic,
     for (uint8_t i = 0; i < sensor_response.num_of_active_sensors; i++) {
         size_t message_size = snprintf(message_buffer,
                                        message_buffer_out_len,
-                                       "{\"value\": %d, \"timestamp\": \"%s\"}",
+                                       "{\"value\": %f, \"index\": %d, \"timestamp\": \"%s\"}",
                                        sensor_response.sensor_array[i].raw_value,
+                                       i,
                                        timestamp);
 
         if ((message_size >= message_buffer_out_len) || (message_size == 0)) {

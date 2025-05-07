@@ -23,6 +23,9 @@
 #define I2C_TX_BUF_STATE TX_BUF_DISABLE /*!< I2C set tx buffer status */
 #define I2C_INTR_ALOC_FLAG (0)          /*!< I2C set interrupt allocation flag */
 
+#define ADS1115_LSB_2_048V 0.0000625f                // LSB for ±2.048V (PGA = 2.048V)
+#define ADS1115_LSB_4_096V (ADS1115_LSB_2_048V * 2)  // LSB for ±2.048V (PGA = 2.048V)
+
 typedef enum sensor_channel_e {
     MUX_CHANNEL_0 = 0,
     MUX_CHANNEL_1,
@@ -51,11 +54,33 @@ typedef struct sensor_info_s {
     sensor_type_et type;             /*!< Type of sensor */
     mux_channel_et channel;          /*!< Channel number for the sensor */
     adc_configuration_et adc_config; /*!< ADC configuration type */
+    float offset;                    /*!< Offset voltage for the sensor */
+    float conversion_gain;           /*!< Gain for the sensor converter */
+
 } sensor_info_st;
 
 static const sensor_info_st sensor_info[NUM_OF_CHANNELS] = {
-    {SENSOR_TYPE_TEMPERATURE, MUX_CHANNEL_2, ADC_CONFIG_SINGLE_ENDED_A1},  // Channel 0 for temperature sensor
-    {SENSOR_TYPE_HART, MUX_CHANNEL_2, ADC_CONFIG_DIFF_A2_A3},              // Channel 1 for HART sensor
+    {
+        SENSOR_TYPE_HART,
+        MUX_CHANNEL_2,
+        ADC_CONFIG_SINGLE_ENDED_A0,
+        0,
+        ADS1115_LSB_4_096V,
+    },
+    {
+        SENSOR_TYPE_TEMPERATURE,
+        MUX_CHANNEL_2,
+        ADC_CONFIG_SINGLE_ENDED_A1,
+        1.65,
+        ADS1115_LSB_2_048V,
+    },
+    {
+        SENSOR_TYPE_TEMPERATURE,
+        MUX_CHANNEL_2,
+        ADC_CONFIG_DIFF_A2_A3,
+        0,
+        ADS1115_LSB_2_048V,
+    },
 };
 
 sensor_response_st sensor_response = {0};  ///< Sensor response structure to hold sensor data.
@@ -110,6 +135,24 @@ static const char *TAG = "Application Task";  ///< Tag used for logging.
 // }
 
 /**
+ * @brief Convert raw ADS1115 value to real voltage.
+ *
+ * @param raw          Raw 16-bit signed ADS1115 value.
+ * @param has_offset   If true, subtract offset (e.g., when using INA333).
+ * @param offset       Offset voltage added before ADS input (e.g., 1.65V).
+ * @return Voltage in volts.
+ */
+float ads1115_to_voltage(int16_t raw, bool has_offset, float offset, float ads_gain) {
+    float voltage = raw * ads_gain;
+
+    if (has_offset) {
+        voltage -= offset;
+    }
+
+    return voltage;
+}
+
+/**
  * @brief Initializes the application hardware and peripherals.
  *
  * This function is responsible for setting up the necessary hardware components,
@@ -136,7 +179,7 @@ static esp_err_t application_task_initialize(void) {
     ads1115_config.reg_cfg.bits.comp_mode = COMP_MODE_TRADITIONAL;
     ads1115_config.reg_cfg.bits.dr        = DR_128SPS;
     ads1115_config.reg_cfg.bits.mode      = MODE_SINGLESHOT;
-    ads1115_config.reg_cfg.bits.pga       = PGA_4_096V;
+    ads1115_config.reg_cfg.bits.pga       = PGA_2_048V;
     ads1115_config.reg_cfg.bits.mux       = MUX_AIN0_AIN1;
     ads1115_config.reg_cfg.bits.os        = OS_NO_EFFECT;
     ADS1115_initialize(&ads1115_config);
@@ -175,18 +218,21 @@ void application_task_execute(void *pvParameters) {
             switch (sensor_info[i].adc_config) {
                 case ADC_CONFIG_SINGLE_ENDED_A0:
                     ADS1115_set_mux(MUX_AIN0_GND);
+                    ADS1115_set_pga(PGA_4_096V);
                     ADS1115_set_os(OS_START_SINGLE_CONV);
                     ADS1115_update();
                     // ESP_LOGI(TAG, "Requesting single-ended measurement on AIN0");
                     break;
                 case ADC_CONFIG_SINGLE_ENDED_A1:
                     ADS1115_set_mux(MUX_AIN1_GND);
+                    ADS1115_set_pga(PGA_2_048V);
                     ADS1115_set_os(OS_START_SINGLE_CONV);
                     ADS1115_update();
                     // ESP_LOGI(TAG, "Requesting single-ended measurement on AIN1");
                     break;
                 case ADC_CONFIG_SINGLE_ENDED_A2:
                     ADS1115_set_mux(MUX_AIN2_GND);
+                    ADS1115_set_pga(PGA_2_048V);
                     ADS1115_set_os(OS_START_SINGLE_CONV);
                     ADS1115_update();
                     // ESP_LOGI(TAG, "Requesting single-ended measurement on AIN2");
@@ -221,11 +267,12 @@ void application_task_execute(void *pvParameters) {
                 vTaskDelay(pdMS_TO_TICKS(100));  // Wait for the conversion to complete
             }
 
+            float voltage      = 0;
             uint16_t raw_value = ADS1115_get_raw_value();
-            ESP_LOGI(TAG, "Raw Value[%d]: %d", i, raw_value);
+            voltage            = ads1115_to_voltage(raw_value, false, sensor_info[i].offset, sensor_info[i].conversion_gain);  // Convert raw value to voltage
 
             sensor_response.sensor_array[i].type      = sensor_info[i].type;  // Set the sensor type
-            sensor_response.sensor_array[i].raw_value = raw_value;            // Set the raw value from the sensor
+            sensor_response.sensor_array[i].raw_value = voltage;              // Set the raw value from the sensor
             sensor_response.num_of_active_sensors     = (i + 1);              // Set the number of active sensors
         }
         BaseType_t queue_result = xQueueSend(global_config->mqtt_topics[DATA_STRUCT_SENSOR_READ].queue,

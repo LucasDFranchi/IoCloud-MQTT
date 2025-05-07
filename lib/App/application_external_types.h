@@ -15,7 +15,7 @@
  * modules.
  */
 
-#define NUM_OF_CHANNELS (2) /*!< Number of channels for the TCA9548A multiplexer */
+#define NUM_OF_CHANNELS (3) /*!< Number of channels for the TCA9548A multiplexer */
 
 typedef enum data_struct_types_e {
     DATA_STRUCT_SENSOR_READ = 0,
@@ -36,7 +36,7 @@ typedef enum sensor_type_e {
 typedef struct sensor_response_s {
     struct sensor_array_s {
         sensor_type_et type;         /*!< Type of sensor */
-        int raw_value;               /*!< Raw value from the sensor */
+        float raw_value;               /*!< Raw value from the sensor */
     } sensor_array[NUM_OF_CHANNELS]; /*!< Array of sensor values */
     int num_of_active_sensors;       /*!< Number of sensors in the array */
 } sensor_response_st;
